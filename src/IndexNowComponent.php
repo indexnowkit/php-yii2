@@ -5,23 +5,17 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2;
 
 use IndexNowKit\Adapter\Services;
-use IndexNowKit\Adapter\ServicesBuilder;
 use IndexNowKit\Attribute\IndexNow;
 use IndexNowKit\Attribute\IndexNowDefaults;
 use IndexNowKit\Attribute\ParamExtractor;
 use IndexNowKit\Attribute\RuleRegistry;
 use IndexNowKit\Check\CheckerInterface;
 use IndexNowKit\Check\CheckInterface;
-use IndexNowKit\Check\CheckLevel;
-use IndexNowKit\Check\DebounceStoreCheck;
-use IndexNowKit\Check\StaticCheck;
 use IndexNowKit\Collector\CollectorInterface;
 use IndexNowKit\Config;
-use IndexNowKit\Debounce\DebounceStoreFactory;
 use IndexNowKit\Debounce\DebounceStoreInterface;
 use IndexNowKit\Dispatch\DispatcherInterface;
 use IndexNowKit\Event;
-use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\IndexNowKit;
 use IndexNowKit\Key\KeyFileResponder;
@@ -32,7 +26,6 @@ use IndexNowKit\Sitemap\SitemapSourceInterface;
 use IndexNowKit\SubmitterInterface;
 use IndexNowKit\Throttle\ThrottleInterface;
 use IndexNowKit\Transaction\VerifyingStaging;
-use IndexNowKit\Url\ArrayResolverLocator;
 use IndexNowKit\Url\GuardedUrlResolver;
 use IndexNowKit\Url\ResolvedUrl;
 use IndexNowKit\Url\RouteUrlResolverInterface;
@@ -40,29 +33,19 @@ use IndexNowKit\Url\UrlNormalizerInterface;
 use IndexNowKit\Url\UrlResolverInterface;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordSubjectReader;
 use IndexNowKit\Yii2\ActiveRecord\IndexNowObserver;
-use IndexNowKit\Yii2\Check\ActiveRecordCheck;
-use IndexNowKit\Yii2\Check\CacheProbe;
-use IndexNowKit\Yii2\Check\QueueCheck;
-use IndexNowKit\Yii2\Check\UrlManagerCheck;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\Console\IndexNowController;
-use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
 use IndexNowKit\Yii2\Http\KeyFileController;
 use IndexNowKit\Yii2\Log\YiiLogger;
-use IndexNowKit\Yii2\Queue\QueueDispatcher;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
 use IndexNowKit\Yii2\Sitemap\SitemapSupport;
-use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
 use LogicException;
 use Psr\Log\LoggerInterface;
-use Throwable;
 use Yii;
 use yii\base\Application;
 use yii\base\BootstrapInterface;
 use yii\base\Component;
 use yii\base\Event as YiiEvent;
-use yii\base\InvalidConfigException;
-use yii\caching\CacheInterface;
 use yii\db\BaseActiveRecord;
 use yii\di\Instance;
 use yii\queue\Queue;
@@ -71,9 +54,9 @@ use yii\web\UrlManager;
 
 /**
  * The `indexnow` application component: describes the core graph from `options` with `Adapter\ServicesBuilder`
- * (the core's factories underneath, the Yii pieces as closures, see {@see services()}), hooks ActiveRecord (through {@see ActiveRecord\IndexNowBehavior} or the `active_record.models`
- * list), registers the key file route and the console controller, and flushes the collector when the response has
- * been sent.
+ * ({@see Wiring}: the core's factories underneath, the Yii pieces as closures), hooks ActiveRecord (through
+ * {@see ActiveRecord\IndexNowBehavior} or the `active_record.models` list), registers the key file route and the
+ * console controller, and flushes the collector when the response has been sent.
  *
  *   'bootstrap' => ['indexnow'],
  *   'components' => ['indexnow' => ['class' => IndexNowComponent::class, 'options' => ['key' => getenv('INDEXNOW_KEY'), 'base_url' => 'https://www.example.com']]],
@@ -186,64 +169,13 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     }
 
     /**
-     * The core graph (`Adapter\Services`), described once through `Adapter\ServicesBuilder`: the properties of this
-     * component are the overrides, the Yii pieces (`http.client` through the container, the cache component as the
-     * debounce store, yii2-queue, the URL manager, `#[IndexNow(resolver: ...)]` ids) are closures, everything else
-     * comes from the core's factories. Nothing is built before it is used.
+     * The core graph (`Adapter\Services`) {@see Wiring} describes once: the properties of this component are the
+     * overrides, the Yii pieces are closures, everything else comes from the core's factories. Nothing is built
+     * before it is used.
      */
     public function services(): Services
     {
-        if ($this->services === null) {
-            $builder = new ServicesBuilder($this->config(), $this->logger());
-            if ($this->transport !== null) {
-                $builder->transport(fn(): TransportInterface => $this->ensure($this->reference($this->transport), TransportInterface::class));
-            }
-            $builder->httpClientLocator(static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
-            $builder->debounceStore($this->debounceStore !== null
-                ? fn(): DebounceStoreInterface => $this->ensure($this->reference($this->debounceStore), DebounceStoreInterface::class)
-                : static fn(Services $s): DebounceStoreInterface => DebounceStoreFactory::fromConfig(
-                    $s->config,
-                    static fn(string $id): DebounceStoreInterface => new YiiCacheDebounceStore(Instance::ensure($id, CacheInterface::class), $s->config->debounceKeyPrefix),
-                    self::DEFAULT_DEBOUNCE_STORE,
-                ));
-            if ($this->dispatcher !== null) {
-                $builder->dispatcher(fn(): DispatcherInterface => $this->ensure($this->reference($this->dispatcher), DispatcherInterface::class));
-            }
-            $builder->queueFactory(function (Services $s): DispatcherInterface {
-                $queue = $this->block('queue');
-                $ttr = $queue['ttr'] ?? null;
-                $delay = $queue['delay'] ?? null;
-                $priority = $queue['priority'] ?? null;
-
-                return new QueueDispatcher(fn(): Queue => $this->queue(), $s->config, $s->logger, is_numeric($ttr) ? (int) $ttr : 300, is_numeric($delay) ? (int) $delay : 0, \is_int($priority) || \is_string($priority) ? $priority : null);
-            });
-            $builder->router(function (Services $s): RouteUrlResolverInterface {
-                $router = $this->block('router');
-                $languages = \is_array($router['languages'] ?? null) ? array_values(array_filter($router['languages'], 'is_string')) : [];
-                $parameter = $router['language_parameter'] ?? 'language';
-
-                return new YiiRouteUrlResolver($s->config, $languages, \is_string($parameter) && $parameter !== '' ? $parameter : 'language', (bool) ($router['set_app_language'] ?? true));
-            });
-            $builder->resolverLocator(static fn(): ArrayResolverLocator => new ArrayResolverLocator([], locate: static function (string $id): ?object {
-                try {
-                    $resolver = App::component($id);
-                    if ($resolver === null && (Yii::$container->has($id) || class_exists($id))) {
-                        $resolver = Yii::$container->get($id);
-                    }
-                } catch (Throwable $e) {
-                    throw new ConfigurationException(\sprintf('IndexNow URL resolver "%s" cannot be built: %s', $id, $e->getMessage()), 0, $e);
-                }
-
-                return \is_object($resolver) ? $resolver : null;
-            }, hint: 'a component, a container definition'));
-            if ($this->urlResolver !== null) {
-                $builder->urlResolver(fn(): UrlResolverInterface => $this->ensure($this->reference($this->urlResolver), UrlResolverInterface::class));
-            }
-            $builder->checks(fn(Services $s): iterable => $this->checks($s));
-            $this->services = $builder->build();
-        }
-
-        return $this->services;
+        return $this->services ??= (new Wiring($this))->builder()->build();
     }
 
     public function kit(): IndexNowKit
@@ -378,61 +310,6 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     public function checker(): CheckerInterface
     {
         return $this->services()->checker();
-    }
-
-    /**
-     * The lines of `php yii indexnow/check` beyond the core's own: the Yii pieces, then the `checks` property.
-     *
-     * @return list<CheckInterface>
-     */
-    private function checks(Services $services): array
-    {
-        $checks = [
-            new QueueCheck($this->options, $services->config->dispatch, $this->queueExists()),
-            new DebounceStoreCheck($services->config, (new CacheProbe())(...), self::DEFAULT_DEBOUNCE_STORE),
-            new UrlManagerCheck($this->options),
-            new ActiveRecordCheck($this->activeRecordEnabled(), $this->modelClasses()),
-            SitemapSupport::installed() ? SitemapServices::spoolCheck($this->sitemapConfig()) : new StaticCheck(CheckLevel::Ok, SitemapSupport::checkLine($this->block('sitemap'))),
-        ];
-        foreach ($this->checks as $check) {
-            $checks[] = $this->ensure($this->reference($check), CheckInterface::class);
-        }
-
-        return $checks;
-    }
-
-    /**
-     * @return array<string, mixed>|object|string what `Instance::ensure()` accepts, or an InvalidConfigException naming the value
-     */
-    private function reference(mixed $value): array|object|string
-    {
-        if (\is_object($value) || \is_string($value)) {
-            return $value;
-        }
-        if (\is_array($value)) {
-            /** @var array<string, mixed> $value */
-            return $value;
-        }
-
-        throw new InvalidConfigException(\sprintf('indexnow: an override must be an instance, a config array, a class name or a component id, got %s.', get_debug_type($value)));
-    }
-
-    /**
-     * A property override (an instance, a config array, a class name or a component id) as the type it must be.
-     *
-     * @template T of object
-     *
-     * @param array<string, mixed>|object|string $reference
-     * @param class-string<T>                    $type
-     *
-     * @return T
-     */
-    private function ensure(array|object|string $reference, string $type): object
-    {
-        $instance = Instance::ensure($reference, $type);
-        \assert($instance instanceof $type);
-
-        return $instance;
     }
 
     // -- the application-facing API ----------------------------------------------------------------------------------
@@ -572,16 +449,6 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     public function queueExists(): bool
     {
         return class_exists(Queue::class) && App::current()->has($this->queueComponentId());
-    }
-
-    private function queue(): Queue
-    {
-        $queue = App::component($this->queueComponentId());
-        if (!$queue instanceof Queue) {
-            throw new InvalidConfigException(\sprintf('indexnow: component "%s" is not a yii\queue\Queue.', $this->queueComponentId()));
-        }
-
-        return $queue;
     }
 
     private function hookModels(): void

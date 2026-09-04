@@ -5,6 +5,12 @@ contain breaking changes, listed under "Changed".
 
 ## [0.5.0] — 2026-09-05
 
+### Changed
+
+- Internal refactor, no API change: the `Adapter\ServicesBuilder` description of the graph and the `check` lines
+  moved from `IndexNowComponent` to `Wiring`, the resolution of the override properties to `References`. The
+  component keeps every public method and property; only relevant if you extend the component's internals.
+
 ### Fixed
 
 - `php yii help indexnow/<action>` describes the options with the texts and defaults of the core's

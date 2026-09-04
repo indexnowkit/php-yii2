@@ -14,8 +14,9 @@ as properties (an instance, a config array, a class name or a component id):
 | `logger` | PSR-3 | anything but Yii's logger |
 | `checks` | list of `IndexNowKit\Check\CheckInterface` | extra lines in `indexnow/check` (a CDN purge, a tenant table) |
 
-Underneath, the component describes the graph once with the core's `Adapter\ServicesBuilder` (the properties above
-are its overrides, the Yii pieces are closures) and `services()` returns the lazy `Adapter\Services`; nothing is
+Underneath, `Wiring` describes the graph once with the core's `Adapter\ServicesBuilder` (the properties above
+are its overrides, resolved by `References`; the Yii pieces are closures) and `services()` returns the lazy
+`Adapter\Services`; nothing is
 built before it is used, and a request that collects nothing builds nothing. Everything built is also readable, as
 delegates: `kit()`, `config()`, `submitter()`, `collector()`, `keys()`, `transport()`, `debounceStore()`,
 `routeResolver()`, `observer()`, `staging()`, `checker()`, `rules()`, and `sitemapConfig()` / `sitemapSource()` with
