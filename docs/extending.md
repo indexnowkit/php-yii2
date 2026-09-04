@@ -14,8 +14,11 @@ as properties (an instance, a config array, a class name or a component id):
 | `logger` | PSR-3 | anything but Yii's logger |
 | `checks` | list of `IndexNowKit\Check\CheckInterface` | extra lines in `indexnow/check` (a CDN purge, a tenant table) |
 
-Everything built is also readable: `kit()`, `config()`, `submitter()`, `collector()`, `keys()`, `transport()`,
-`debounceStore()`, `routeResolver()`, `observer()`, `staging()`, `checker()`, `sitemapSource()`, `rules()`.
+Underneath, the component describes the graph once with the core's `Adapter\ServicesBuilder` (the properties above
+are its overrides, the Yii pieces are closures) and `services()` returns the lazy `Adapter\Services`; nothing is
+built before it is used, and a request that collects nothing builds nothing. Everything built is also readable, as
+delegates: `kit()`, `config()`, `submitter()`, `collector()`, `keys()`, `transport()`, `debounceStore()`,
+`routeResolver()`, `observer()`, `staging()`, `checker()`, `sitemapSource()`, `rules()`.
 
 ## Custom resolvers
 
@@ -41,6 +44,14 @@ Yii::$app->indexnow->rules()->registerFor(Page::class, fn (Page $page): ?RuleSet
 `submit(iterable $urls)`, `submitRecord($record, Event $event)`, `submitRecords(iterable $records)` (one request for
 many), `urlsFor()`, `explain()` return `Result`s; `collect()` parks URLs in the request collector, `flush()` sends
 them now. Listen to results: `Yii::$app->indexnow->submitter()->addListener(fn (Result $r) => ...)`.
+
+## What is the core's
+
+The observer keeps only what is Yii's (the change set from `changedAttributes`, the previous state, the
+verify-on-commit staging); guarding, logging and the URLs of a row about to be deleted are the core's
+`Hook\ObserverHelper`. `SubmitUrlsJob` is `Retry\WorkerOutcome` plus yii2-queue's `canRetry()` (no delay from the
+job: the queue driver's delay applies). The options of every `indexnow/<action>` come from `Console\Definitions`
+and `Sitemap\Console\Definitions`, so `php yii help indexnow/submit-record` matches the bundle and artisan.
 
 ## Console
 

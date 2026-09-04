@@ -3,6 +3,31 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.3.0] — 2026-09-05
+
+The core 0.5 "adapter kit" release, second wave: the component describes its graph with `Adapter\ServicesBuilder`,
+the observer, the queue job and the console controller are built on `Hook\ObserverHelper`, `Retry\WorkerOutcome`
+and `Console\Definitions`. Options, commands and the component's properties do not change.
+
+### Added
+
+- `IndexNowComponent::services()`: the lazy `Adapter\Services` graph the component describes once (the properties
+  `transport`, `debounceStore`, `dispatcher`, `urlResolver`, `checks` are its overrides). The graph methods
+  (`kit()`, `transport()`, `debounceStore()`, `submitter()`, `dispatcher()`, `checker()`, …) are delegates.
+
+### Changed
+
+- Requires `indexnowkit/core ^0.5` and `indexnowkit/sitemap ^0.1.1`.
+- `ActiveRecord\IndexNowObserver` on `Hook\ObserverHelper`: what is Yii's stays (change set, previous state, the
+  verify-on-commit staging); the log line for a resolve failure before a deletion is now the helper's
+  `indexnow: cannot resolve the URLs of {class}: {error}` (was "... before deletion: ...").
+- `Queue\SubmitUrlsJob` on `Retry\WorkerOutcome`: same behaviour (`canRetry()` up to `retry.max_attempts`, no delay
+  from the job), the retry line now reads `indexnow: {count} URL(s) of job {id} will be retried` (was "... were
+  not accepted and will be retried by the queue").
+- `Console\IndexNowController::options()` / `optionAliases()` come from `Console\Definitions` /
+  `Sitemap\Console\Definitions`: the same option names and shortcuts as the bundle and artisan.
+- Tests: H01–H05 assert through the core's `Testing\KeyFileAssertions` and `Testing\CheckOutputAssertions`.
+
 ## [0.2.0] — 2026-09-05
 
 The core 0.4 "adapter kit" release: the component is built on the core's factories and `Adapter\ConfigFactory`,

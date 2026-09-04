@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\Tests\Feature;
 
+use IndexNowKit\Testing\KeyFileAssertions;
 use IndexNowKit\Yii2\Tests\Yii2TestCase;
 use PHPUnit\Framework\Attributes\TestDox;
 use yii\web\NotFoundHttpException;
@@ -16,18 +17,15 @@ final class KeyFileTest extends Yii2TestCase
     {
         $response = $this->request(self::KEY . '.txt');
 
-        self::assertSame(200, $response->statusCode);
-        self::assertSame(self::KEY, $response->content);
-        self::assertSame('text/plain; charset=utf-8', $response->getHeaders()->get('Content-Type'));
-        self::assertSame('public, max-age=300', $response->getHeaders()->get('Cache-Control'));
-        self::assertSame('Host', $response->getHeaders()->get('Vary'));
+        KeyFileAssertions::assertKeyFileResponse($response->statusCode, self::headers($response), (string) $response->content, self::KEY, expectVaryHost: true);
     }
 
     #[TestDox('H01b the key file of another configured host is served only on that host')]
     public function testKeyFileIsPerHost(): void
     {
         $this->expectNotFound(self::SECOND_KEY . '.txt');
-        self::assertSame(self::SECOND_KEY, $this->request(self::SECOND_KEY . '.txt', 'https://example.de')->content);
+        $response = $this->request(self::SECOND_KEY . '.txt', 'https://example.de');
+        KeyFileAssertions::assertKeyFileResponse($response->statusCode, self::headers($response), (string) $response->content, self::SECOND_KEY, expectVaryHost: true);
         $this->expectNotFound(self::KEY . '.txt', 'https://example.de');
     }
 
@@ -50,13 +48,27 @@ final class KeyFileTest extends Yii2TestCase
         return $response;
     }
 
+    /** Yii answers a missing route with an exception; the status code is what the browser would see. */
     private function expectNotFound(string $path, string $hostInfo = self::BASE_URL): void
     {
         try {
             $this->request($path, $hostInfo);
             self::fail('expected a 404 for ' . $path);
-        } catch (NotFoundHttpException) {
-            self::assertTrue(true);
+        } catch (NotFoundHttpException $e) {
+            KeyFileAssertions::assertNotServed($e->statusCode);
         }
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private static function headers(Response $response): array
+    {
+        $headers = [];
+        foreach ($response->getHeaders() as $name => $values) {
+            $headers[(string) $name] = array_values(array_map(strval(...), (array) $values));
+        }
+
+        return $headers;
     }
 }

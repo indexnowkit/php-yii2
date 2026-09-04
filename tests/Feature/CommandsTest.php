@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Tests\Feature;
 
 use IndexNowKit\Http\Response;
+use IndexNowKit\Testing\CheckOutputAssertions;
 use IndexNowKit\Yii2\Console\IndexNowController;
 use IndexNowKit\Yii2\Tests\Fixtures\Post;
 use IndexNowKit\Yii2\Tests\Yii2TestCase;
@@ -34,8 +35,9 @@ final class CommandsTest extends Yii2TestCase
 
         [$code, $output] = $this->yii('indexnow/check');
 
-        self::assertSame(0, $code, $output);
-        foreach (['www.example.com: key file OK', 'example.de: key file OK', 'engines: api', 'dispatch "sync"', 'debounce: off', 'spooled in memory', 'active record: records using IndexNowBehavior and ' . \IndexNowKit\Yii2\Tests\Fixtures\ModelPost::class, 'key file: served by the web application', 'IndexNow is ready.'] as $expected) {
+        CheckOutputAssertions::assertExitCode(0, $code, $output);
+        CheckOutputAssertions::assertReady($output, 'www.example.com', 'example.de');
+        foreach (['engines: api', 'dispatch "sync"', 'debounce: off', 'spooled in memory', 'active record: records using IndexNowBehavior and ' . \IndexNowKit\Yii2\Tests\Fixtures\ModelPost::class, 'key file: served by the web application'] as $expected) {
             self::assertStringContainsString($expected, $output);
         }
     }
@@ -48,9 +50,8 @@ final class CommandsTest extends Yii2TestCase
 
         [$code, $output] = $this->yii('indexnow/check');
 
-        self::assertSame(1, $code);
-        self::assertStringContainsString('returned HTTP 403', $output);
-        self::assertStringContainsString('IndexNow is not ready', $output);
+        CheckOutputAssertions::assertExitCode(1, $code, $output);
+        CheckOutputAssertions::assertKeyFileHint($output, 403);
     }
 
     #[TestDox('indexnow/check --host limits the key file check to one host')]
