@@ -18,7 +18,9 @@ Underneath, the component describes the graph once with the core's `Adapter\Serv
 are its overrides, the Yii pieces are closures) and `services()` returns the lazy `Adapter\Services`; nothing is
 built before it is used, and a request that collects nothing builds nothing. Everything built is also readable, as
 delegates: `kit()`, `config()`, `submitter()`, `collector()`, `keys()`, `transport()`, `debounceStore()`,
-`routeResolver()`, `observer()`, `staging()`, `checker()`, `sitemapSource()`, `rules()`.
+`routeResolver()`, `observer()`, `staging()`, `checker()`, `rules()`, and `sitemapConfig()` / `sitemapSource()` with
+the optional `indexnowkit/sitemap` installed (`sitemapInstalled()`; without it they throw a `LogicException` naming
+the package).
 
 ## Custom resolvers
 

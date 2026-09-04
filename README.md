@@ -21,6 +21,7 @@ One attribute on the model, one component, done.
 
 ```bash
 composer require indexnowkit/yii2
+composer require indexnowkit/sitemap           # optional: the indexnow/sitemap command
 php yii indexnow/key-generate --write-env      # INDEXNOW_KEY in .env (or print it)
 php yii indexnow/check                         # options, key file reachable, queue, cache, URL rules
 ```
@@ -113,6 +114,16 @@ Full model, typed parameters, inheritance and the semantics table:
 | `indexnow/key-generate` | `--length` · `--alphanumeric` · `--write-env[=FILE]` · `--force` rotate |
 
 `<class>` is an FQCN or a short name under `app\models`. Ids are space- or comma-separated.
+
+### Sitemaps
+
+`composer require indexnowkit/sitemap   # optional: the indexnow/sitemap command`
+
+`indexnow/sitemap` with no argument reads `sitemap.url`, else `<base_url>/sitemap.xml`; a local path works too.
+Without the package everything else works unchanged: `indexnow/sitemap` says `indexnowkit/sitemap is not
+installed: composer require indexnowkit/sitemap` and exits 1, `indexnow/check` prints `sitemap: not installed (…)`,
+a `sitemap` block in the options is ignored, `sitemapConfig()` / `sitemapSource()` throw a `LogicException` with
+the same sentence. Nothing is logged about it.
 
 ## Configuration and docs
 

@@ -12,7 +12,9 @@ use IndexNowKit\Attribute\ParamExtractor;
 use IndexNowKit\Attribute\RuleRegistry;
 use IndexNowKit\Check\CheckerInterface;
 use IndexNowKit\Check\CheckInterface;
+use IndexNowKit\Check\CheckLevel;
 use IndexNowKit\Check\DebounceStoreCheck;
+use IndexNowKit\Check\StaticCheck;
 use IndexNowKit\Collector\CollectorInterface;
 use IndexNowKit\Config;
 use IndexNowKit\Debounce\DebounceStoreFactory;
@@ -25,9 +27,7 @@ use IndexNowKit\IndexNowKit;
 use IndexNowKit\Key\KeyFileResponder;
 use IndexNowKit\Key\KeyProviderInterface;
 use IndexNowKit\Result;
-use IndexNowKit\Sitemap\Check\SitemapSpoolCheck;
 use IndexNowKit\Sitemap\SitemapConfig;
-use IndexNowKit\Sitemap\SitemapReader;
 use IndexNowKit\Sitemap\SitemapSourceInterface;
 use IndexNowKit\SubmitterInterface;
 use IndexNowKit\Throttle\ThrottleInterface;
@@ -50,7 +50,10 @@ use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
 use IndexNowKit\Yii2\Http\KeyFileController;
 use IndexNowKit\Yii2\Log\YiiLogger;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
+use IndexNowKit\Yii2\Sitemap\SitemapServices;
+use IndexNowKit\Yii2\Sitemap\SitemapSupport;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
+use LogicException;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use Yii;
@@ -76,7 +79,9 @@ use yii\web\UrlManager;
  *   'components' => ['indexnow' => ['class' => IndexNowComponent::class, 'options' => ['key' => getenv('INDEXNOW_KEY'), 'base_url' => 'https://www.example.com']]],
  *
  * Every core piece is replaceable through a property (`transport`, `debounceStore`, `dispatcher`, `urlResolver`,
- * `logger`, `checks`), given as an instance, a class name or a component id (`Instance::ensure`).
+ * `logger`, `checks`), given as an instance, a class name or a component id (`Instance::ensure`). The sitemap
+ * pieces come from `Sitemap\SitemapServices` when the optional `indexnowkit/sitemap` is installed
+ * ({@see SitemapSupport}); without it `indexnow/sitemap` prints one sentence and `indexnow/check` one line.
  */
 final class IndexNowComponent extends Component implements BootstrapInterface
 {
@@ -331,25 +336,38 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     /**
      * The validated `sitemap` block; a broken value disables the sitemap command with a critical log line, like the
-     * core options.
+     * core options. Needs the optional `indexnowkit/sitemap`: without it a LogicException with the install line.
+     *
+     * @throws LogicException when indexnowkit/sitemap is not installed
      */
     public function sitemapConfig(): SitemapConfig
     {
-        if ($this->sitemapConfig === null) {
-            try {
-                $this->sitemapConfig = SitemapConfig::fromArray($this->block('sitemap'));
-            } catch (ConfigurationException $e) {
-                $this->logger()->critical('indexnow: invalid sitemap configuration, the sitemap command is disabled until it is fixed: {error}', ['error' => $e->getMessage(), 'exception' => $e]);
-                $this->sitemapConfig = SitemapConfig::disabled();
-            }
-        }
+        $this->requireSitemap();
 
-        return $this->sitemapConfig;
+        return $this->sitemapConfig ??= SitemapServices::config($this->block('sitemap'), $this->logger());
     }
 
+    /**
+     * @throws LogicException when indexnowkit/sitemap is not installed
+     */
     public function sitemapSource(): SitemapSourceInterface
     {
-        return $this->sitemap ??= SitemapReader::fromConfig($this->sitemapConfig(), $this->transport(), $this->logger());
+        $this->requireSitemap();
+
+        return $this->sitemap ??= SitemapServices::reader($this->sitemapConfig(), $this->transport(), $this->logger());
+    }
+
+    /** Whether the optional `indexnowkit/sitemap` is installed ({@see SitemapSupport}). */
+    public function sitemapInstalled(): bool
+    {
+        return SitemapSupport::installed();
+    }
+
+    private function requireSitemap(): void
+    {
+        if (!SitemapSupport::installed()) {
+            throw new LogicException(SitemapSupport::NOT_INSTALLED);
+        }
     }
 
     public function keyFileResponder(): KeyFileResponder
@@ -374,7 +392,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
             new DebounceStoreCheck($services->config, (new CacheProbe())(...), self::DEFAULT_DEBOUNCE_STORE),
             new UrlManagerCheck($this->options),
             new ActiveRecordCheck($this->activeRecordEnabled(), $this->modelClasses()),
-            new SitemapSpoolCheck($this->sitemapConfig()),
+            SitemapSupport::installed() ? SitemapServices::spoolCheck($this->sitemapConfig()) : new StaticCheck(CheckLevel::Ok, SitemapSupport::checkLine($this->block('sitemap'))),
         ];
         foreach ($this->checks as $check) {
             $checks[] = $this->ensure($this->reference($check), CheckInterface::class);

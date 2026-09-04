@@ -7,7 +7,8 @@ namespace IndexNowKit\Yii2\Config;
 use IndexNowKit\Adapter\ConfigFactory as CoreConfigFactory;
 use IndexNowKit\Config;
 use IndexNowKit\Exception\ConfigurationException;
-use IndexNowKit\Sitemap\SitemapConfig;
+use IndexNowKit\Yii2\Sitemap\SitemapServices;
+use IndexNowKit\Yii2\Sitemap\SitemapSupport;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -20,8 +21,9 @@ use Psr\Log\NullLogger;
 final class ConfigFactory
 {
     /**
-     * Keys this package owns on top of Config::OPTIONS and SitemapConfig::OPTIONS, dotted-path form only: a bare
-     * block name in this list would stop unknownOptions() from checking the keys inside the block.
+     * Keys this package owns on top of Config::OPTIONS (and SitemapConfig::OPTIONS when indexnowkit/sitemap is
+     * installed), dotted-path form only: a bare block name in this list would stop unknownOptions() from checking
+     * the keys inside the block.
      */
     public const YII_OPTIONS = [
         'queue.component', 'queue.ttr', 'queue.delay', 'queue.priority',
@@ -36,6 +38,9 @@ final class ConfigFactory
     public const DISPATCH_MODES = ['queue', 'sync', 'none'];
 
     /**
+     * Without indexnowkit/sitemap the `sitemap` block is ignored as a whole (no "unknown option" warning for options
+     * written for the package); with it, its keys are owned and typos inside it are warned about.
+     *
      * @param array<string, mixed> $options     the component's `options`
      * @param bool                 $queueExists whether the configured queue component exists (resolves `dispatch: auto`)
      */
@@ -43,9 +48,10 @@ final class ConfigFactory
     {
         $queue = \is_array($options['queue'] ?? null) ? $options['queue'] : [];
         $component = \is_string($queue['component'] ?? null) && $queue['component'] !== '' ? $queue['component'] : 'queue';
+        $sitemap = SitemapSupport::installed();
 
         return new CoreConfigFactory(
-            ownedOptions: [...self::YII_OPTIONS, ...SitemapConfig::OPTIONS],
+            ownedOptions: $sitemap ? [...self::YII_OPTIONS, ...SitemapServices::options()] : self::YII_OPTIONS,
             dispatchModes: self::DISPATCH_MODES,
             autoDispatch: static fn(): string => $queueExists ? 'queue' : 'sync',
             needBaseUrl: ['queue'],
@@ -54,6 +60,7 @@ final class ConfigFactory
                 ? \sprintf('"dispatch" is "queue" but the queue component "%s" is not configured (yiisoft/yii2-queue, option queue.component).', $component)
                 : null,
             checkCommand: 'php yii indexnow/check',
+            ignoreBlocks: $sitemap ? [] : ['sitemap'],
         );
     }
 

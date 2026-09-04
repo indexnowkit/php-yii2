@@ -3,6 +3,30 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.4.0] — 2026-09-05
+
+`indexnowkit/sitemap` is optional again (docs/spec/16, wave C): the package suggests it instead of requiring it.
+Options, commands and the component's properties do not change.
+
+### Added
+
+- `IndexNowComponent::sitemapInstalled()`: whether the optional `indexnowkit/sitemap` is installed.
+
+### Changed
+
+- **`indexnowkit/sitemap` is no longer installed automatically.** If you use `indexnow/sitemap`, run
+  `composer require indexnowkit/sitemap`; otherwise, after `composer update`, the command reports that the package is
+  missing and exits with code 1. Requires `indexnowkit/core ^0.5.1`.
+- Without the package: `indexnow/sitemap` (its options still accepted) prints `indexnowkit/sitemap is not installed:
+  composer require indexnowkit/sitemap` and exits 1; `indexnow/check` prints `sitemap: not installed (composer require
+  indexnowkit/sitemap)`, or `sitemap: not installed, the sitemap block in the configuration is ignored (…)` when the
+  options carry a `sitemap` block; `Config\ConfigFactory` ignores that block as a whole (no "unknown option" warning);
+  `IndexNowComponent::sitemapConfig()` and `sitemapSource()` throw a `LogicException` with the install line before
+  touching the package's types. Nothing is logged at bootstrap or on a request.
+- The sitemap pieces moved to `Sitemap\SitemapServices` and `Console\SitemapAction`, used only when
+  `Sitemap\SitemapSupport::installed()` holds (the predicate; `@internal` `SitemapSupport::$installed` forces it in
+  tests). Only relevant if you reach into the component or the controller yourself.
+
 ## [0.3.0] — 2026-09-05
 
 The core 0.5 "adapter kit" release, second wave: the component describes its graph with `Adapter\ServicesBuilder`,

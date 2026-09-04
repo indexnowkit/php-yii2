@@ -18,6 +18,7 @@
 
 ```bash
 composer require indexnowkit/yii2
+composer require indexnowkit/sitemap           # опционально: команда indexnow/sitemap
 php yii indexnow/key-generate --write-env      # INDEXNOW_KEY в .env (или просто напечатать)
 php yii indexnow/check                         # опции, доступность файла ключа, очередь, кэш, URL-правила
 ```
@@ -104,6 +105,16 @@ Accessor'ы читают атрибуты и отношения AR (`category.sl
 | `indexnow/key-generate` | `--length` · `--alphanumeric` · `--write-env[=FILE]` · `--force` ротация |
 
 `<class>` — FQCN или короткое имя в `app\models`. Идентификаторы через пробел или запятую.
+
+### Sitemap
+
+`composer require indexnowkit/sitemap   # опционально: команда indexnow/sitemap`
+
+`indexnow/sitemap` без аргумента читает `sitemap.url`, иначе `<base_url>/sitemap.xml`; локальный путь тоже
+работает. Без пакета всё остальное работает как прежде: `indexnow/sitemap` отвечает `indexnowkit/sitemap is not
+installed: composer require indexnowkit/sitemap` и завершается с кодом 1, `indexnow/check` печатает `sitemap: not
+installed (…)`, блок `sitemap` в опциях игнорируется, `sitemapConfig()` / `sitemapSource()` бросают `LogicException`
+с той же фразой. В логи ничего не пишется.
 
 ## Конфигурация и документация
 

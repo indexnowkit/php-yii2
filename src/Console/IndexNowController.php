@@ -19,13 +19,11 @@ use IndexNowKit\Console\SubmitSubjectsRunner;
 use IndexNowKit\Console\SubmitterFactory;
 use IndexNowKit\Console\SubmitterFactoryInterface;
 use IndexNowKit\Console\Vocabulary;
-use IndexNowKit\Sitemap\Console\Definitions as SitemapDefinitions;
-use IndexNowKit\Sitemap\Console\SitemapOptions;
-use IndexNowKit\Sitemap\Console\SitemapRunner;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordLoader;
 use IndexNowKit\Yii2\App;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\IndexNowComponent;
+use IndexNowKit\Yii2\Sitemap\SitemapSupport;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -44,7 +42,7 @@ use yii\di\Instance;
  *   php yii indexnow/submit /a https://www.example.com/b --dry-run
  *   php yii indexnow/submit-record Post 1 2 --explain
  *   php yii indexnow/explain Post 1
- *   php yii indexnow/sitemap --changed-since="1 day"
+ *   php yii indexnow/sitemap --changed-since="1 day"     (needs indexnowkit/sitemap)
  *   php yii indexnow/key-generate --write-env
  */
 final class IndexNowController extends Controller
@@ -86,11 +84,18 @@ final class IndexNowController extends Controller
     public mixed $writeEnv = null;
     public bool $verbose = false;
 
+    /**
+     * The options of `sitemap` while indexnowkit/sitemap is not installed: the names of `Sitemap\Console\Definitions::sitemap()`,
+     * so a cron that passes them still gets the install line rather than "Unknown option".
+     */
+    private const SITEMAP_OPTIONS_WITHOUT_PACKAGE = ['changedSince', 'allowForeignHosts', 'force', 'dryRun', 'json'];
+
     public function options($actionID): array
     {
         $definition = $this->definitions()[$actionID] ?? null;
+        $options = $definition?->yiiOptions() ?? ($actionID === 'sitemap' ? self::SITEMAP_OPTIONS_WITHOUT_PACKAGE : []);
 
-        return array_merge(parent::options($actionID), ['verbose'], $definition?->yiiOptions() ?? []);
+        return array_merge(parent::options($actionID), ['verbose'], $options);
     }
 
     /**
@@ -116,14 +121,18 @@ final class IndexNowController extends Controller
     {
         $words = $this->words();
 
-        return [
+        $definitions = [
             'check' => Definitions::check(),
             'submit' => Definitions::submit(),
             'submit-record' => Definitions::submitSubjects($words),
             'explain' => Definitions::explain($words),
-            'sitemap' => SitemapDefinitions::sitemap(),
             'key-generate' => Definitions::keyGenerate(),
         ];
+        if (SitemapSupport::installed()) {
+            $definitions['sitemap'] = SitemapAction::definition();
+        }
+
+        return $definitions;
     }
 
     /** Validate the configuration, verify the key file is reachable, report how submissions are wired. */
@@ -176,22 +185,19 @@ final class IndexNowController extends Controller
     }
 
     /**
-     * Submit every URL of a sitemap (or only those with lastmod after --changed-since).
+     * Submit every URL of a sitemap (or only those with lastmod after --changed-since). Needs indexnowkit/sitemap.
      *
      * @param string|null $sitemap sitemap URL or local file (default: sitemap.url from the options, else <base_url>/sitemap.xml)
      */
     public function actionSitemap(?string $sitemap = null): int
     {
-        $component = $this->component();
-        $config = $component->sitemapConfig();
-        if (!$config->enabled) {
-            $this->io()->error('sitemap.enabled is false.');
+        if (!SitemapSupport::installed()) {
+            $this->io()->writeln('<error>' . SitemapSupport::NOT_INSTALLED . '</error>'); // one line, not a wrapped block: a cron log greps it
 
-            return ExitCode::INVALID;
+            return ExitCode::FAILURE;
         }
-        $runner = new SitemapRunner($component->kit(), $component->sitemapSource(), $this->submitterFactory(), $config->url, $this->formatter(), sitemapUrlOption: 'sitemap.url');
 
-        return $runner->run($this->io(), new SitemapOptions($sitemap, $this->changedSince, $this->allowForeignHosts, $this->force, $this->dryRun, $this->json));
+        return SitemapAction::run($this->component(), $this->io(), $this->submitterFactory(), $this->formatter(), $sitemap, $this->changedSince, $this->allowForeignHosts, $this->force, $this->dryRun, $this->json);
     }
 
     /**

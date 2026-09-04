@@ -30,7 +30,7 @@ the blocks marked **Yii** are handled by this package. Verify with `php yii inde
 | `router.set_app_language` | `true` | switch `Yii::$app->language` while generating a locale's URL, restored afterwards |
 | `active_record.enabled` | `true` | `false` = `IndexNowBehavior` and the `models` list are inert |
 | `active_record.models` | `[]` | ActiveRecord classes hooked through class-level events (no behavior needed) |
-| `sitemap.*` | | `enabled`, `url`, `max_depth`, `max_sitemaps`, `max_bytes`, `allow_foreign_hosts`, `spool` (auto\|disk\|memory), `spool_dir`, `fetch_retries` |
+| `sitemap.*` | | needs `indexnowkit/sitemap` (`composer require indexnowkit/sitemap`), else the block is ignored and `indexnow/check` says so: `enabled`, `url`, `max_depth`, `max_sitemaps`, `max_bytes`, `allow_foreign_hosts`, `spool` (auto\|disk\|memory), `spool_dir`, `fetch_retries` |
 | `logging.category` | `indexnow` | category of the lines written to `Yii::getLogger()`; route it in `log.targets` |
 
 ## Component properties
