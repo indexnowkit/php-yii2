@@ -4,47 +4,38 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2;
 
-use IndexNowKit\Attribute\AttributeReader;
+use IndexNowKit\Adapter\Services;
+use IndexNowKit\Adapter\ServicesBuilder;
 use IndexNowKit\Attribute\IndexNow;
 use IndexNowKit\Attribute\IndexNowDefaults;
 use IndexNowKit\Attribute\ParamExtractor;
 use IndexNowKit\Attribute\RuleRegistry;
-use IndexNowKit\Check\Checker;
 use IndexNowKit\Check\CheckerInterface;
 use IndexNowKit\Check\CheckInterface;
 use IndexNowKit\Check\DebounceStoreCheck;
-use IndexNowKit\Client;
-use IndexNowKit\Collector\Collector;
 use IndexNowKit\Collector\CollectorInterface;
 use IndexNowKit\Config;
 use IndexNowKit\Debounce\DebounceStoreFactory;
 use IndexNowKit\Debounce\DebounceStoreInterface;
-use IndexNowKit\Dispatch\DispatcherFactory;
 use IndexNowKit\Dispatch\DispatcherInterface;
 use IndexNowKit\Event;
 use IndexNowKit\Exception\ConfigurationException;
-use IndexNowKit\Http\TransportFactory;
 use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\IndexNowKit;
 use IndexNowKit\Key\KeyFileResponder;
 use IndexNowKit\Key\KeyProviderInterface;
-use IndexNowKit\Key\StaticKeyProvider;
 use IndexNowKit\Result;
 use IndexNowKit\Sitemap\Check\SitemapSpoolCheck;
 use IndexNowKit\Sitemap\SitemapConfig;
 use IndexNowKit\Sitemap\SitemapReader;
 use IndexNowKit\Sitemap\SitemapSourceInterface;
-use IndexNowKit\Submitter;
 use IndexNowKit\SubmitterInterface;
 use IndexNowKit\Throttle\ThrottleInterface;
-use IndexNowKit\Throttle\TokenBucket;
 use IndexNowKit\Transaction\VerifyingStaging;
 use IndexNowKit\Url\ArrayResolverLocator;
-use IndexNowKit\Url\AttributeUrlResolver;
 use IndexNowKit\Url\GuardedUrlResolver;
 use IndexNowKit\Url\ResolvedUrl;
 use IndexNowKit\Url\RouteUrlResolverInterface;
-use IndexNowKit\Url\UrlNormalizer;
 use IndexNowKit\Url\UrlNormalizerInterface;
 use IndexNowKit\Url\UrlResolverInterface;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordSubjectReader;
@@ -76,9 +67,8 @@ use yii\web\Response;
 use yii\web\UrlManager;
 
 /**
- * The `indexnow` application component: builds the core graph from `options` through the core's factories
- * (`Http\TransportFactory`, `Debounce\DebounceStoreFactory`, `Dispatch\DispatcherFactory`, the `fromConfig()`
- * constructors), hooks ActiveRecord (through {@see ActiveRecord\IndexNowBehavior} or the `active_record.models`
+ * The `indexnow` application component: describes the core graph from `options` with `Adapter\ServicesBuilder`
+ * (the core's factories underneath, the Yii pieces as closures, see {@see services()}), hooks ActiveRecord (through {@see ActiveRecord\IndexNowBehavior} or the `active_record.models`
  * list), registers the key file route and the console controller, and flushes the collector when the response has
  * been sent.
  *
@@ -124,24 +114,11 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     private ?Config $config = null;
     private ?LoggerInterface $psrLogger = null;
-    private ?IndexNowKit $kit = null;
-    private ?RuleRegistry $rules = null;
-    private ?TransportInterface $builtTransport = null;
-    private ?KeyProviderInterface $keys = null;
-    private ?UrlNormalizerInterface $normalizer = null;
-    private ?ThrottleInterface $throttle = null;
-    private ?DebounceStoreInterface $builtDebounce = null;
-    private ?SubmitterInterface $submitter = null;
-    private ?CollectorInterface $collector = null;
-    private ?DispatcherInterface $builtDispatcher = null;
-    private ?RouteUrlResolverInterface $routeResolver = null;
-    private ?GuardedUrlResolver $guardedResolver = null;
+    private ?Services $services = null;
     private ?IndexNowObserver $observer = null;
     private ?VerifyingStaging $staging = null;
     private ?SitemapConfig $sitemapConfig = null;
     private ?SitemapSourceInterface $sitemap = null;
-    private ?CheckerInterface $checker = null;
-    private ?KeyFileResponder $keyFileResponder = null;
 
     public function init(): void
     {
@@ -203,34 +180,80 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         return $this->psrLogger;
     }
 
-    public function kit(): IndexNowKit
+    /**
+     * The core graph (`Adapter\Services`), described once through `Adapter\ServicesBuilder`: the properties of this
+     * component are the overrides, the Yii pieces (`http.client` through the container, the cache component as the
+     * debounce store, yii2-queue, the URL manager, `#[IndexNow(resolver: ...)]` ids) are closures, everything else
+     * comes from the core's factories. Nothing is built before it is used.
+     */
+    public function services(): Services
     {
-        if ($this->kit === null) {
-            $config = $this->config();
-            $this->kit = new IndexNowKit(
-                config: $config,
-                submitter: $this->submitter(),
-                collector: $this->collector(),
-                dispatcher: $this->dispatcher(),
-                keys: $this->keys(),
-                attributes: $this->rules(),
-                resolver: $this->guardedResolver(),
-                logger: $this->logger(),
-                transport: $this->transport(),
-            );
+        if ($this->services === null) {
+            $builder = new ServicesBuilder($this->config(), $this->logger());
+            if ($this->transport !== null) {
+                $builder->transport(fn(): TransportInterface => $this->ensure($this->reference($this->transport), TransportInterface::class));
+            }
+            $builder->httpClientLocator(static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
+            $builder->debounceStore($this->debounceStore !== null
+                ? fn(): DebounceStoreInterface => $this->ensure($this->reference($this->debounceStore), DebounceStoreInterface::class)
+                : static fn(Services $s): DebounceStoreInterface => DebounceStoreFactory::fromConfig(
+                    $s->config,
+                    static fn(string $id): DebounceStoreInterface => new YiiCacheDebounceStore(Instance::ensure($id, CacheInterface::class), $s->config->debounceKeyPrefix),
+                    self::DEFAULT_DEBOUNCE_STORE,
+                ));
+            if ($this->dispatcher !== null) {
+                $builder->dispatcher(fn(): DispatcherInterface => $this->ensure($this->reference($this->dispatcher), DispatcherInterface::class));
+            }
+            $builder->queueFactory(function (Services $s): DispatcherInterface {
+                $queue = $this->block('queue');
+                $ttr = $queue['ttr'] ?? null;
+                $delay = $queue['delay'] ?? null;
+                $priority = $queue['priority'] ?? null;
+
+                return new QueueDispatcher(fn(): Queue => $this->queue(), $s->config, $s->logger, is_numeric($ttr) ? (int) $ttr : 300, is_numeric($delay) ? (int) $delay : 0, \is_int($priority) || \is_string($priority) ? $priority : null);
+            });
+            $builder->router(function (Services $s): RouteUrlResolverInterface {
+                $router = $this->block('router');
+                $languages = \is_array($router['languages'] ?? null) ? array_values(array_filter($router['languages'], 'is_string')) : [];
+                $parameter = $router['language_parameter'] ?? 'language';
+
+                return new YiiRouteUrlResolver($s->config, $languages, \is_string($parameter) && $parameter !== '' ? $parameter : 'language', (bool) ($router['set_app_language'] ?? true));
+            });
+            $builder->resolverLocator(static fn(): ArrayResolverLocator => new ArrayResolverLocator([], locate: static function (string $id): ?object {
+                try {
+                    $resolver = App::component($id);
+                    if ($resolver === null && (Yii::$container->has($id) || class_exists($id))) {
+                        $resolver = Yii::$container->get($id);
+                    }
+                } catch (Throwable $e) {
+                    throw new ConfigurationException(\sprintf('IndexNow URL resolver "%s" cannot be built: %s', $id, $e->getMessage()), 0, $e);
+                }
+
+                return \is_object($resolver) ? $resolver : null;
+            }, hint: 'a component, a container definition'));
+            if ($this->urlResolver !== null) {
+                $builder->urlResolver(fn(): UrlResolverInterface => $this->ensure($this->reference($this->urlResolver), UrlResolverInterface::class));
+            }
+            $builder->checks(fn(Services $s): iterable => $this->checks($s));
+            $this->services = $builder->build();
         }
 
-        return $this->kit;
+        return $this->services;
+    }
+
+    public function kit(): IndexNowKit
+    {
+        return $this->services()->kit();
     }
 
     public function rules(): RuleRegistry
     {
-        return $this->rules ??= new RuleRegistry(new AttributeReader());
+        return $this->services()->rules();
     }
 
     public function keys(): KeyProviderInterface
     {
-        return $this->keys ??= StaticKeyProvider::fromConfig($this->config());
+        return $this->services()->keys();
     }
 
     /**
@@ -239,27 +262,17 @@ final class IndexNowComponent extends Component implements BootstrapInterface
      */
     public function transport(): TransportInterface
     {
-        if ($this->builtTransport === null) {
-            if ($this->transport !== null) {
-                $transport = Instance::ensure($this->transport, TransportInterface::class);
-                \assert($transport instanceof TransportInterface);
-                $this->builtTransport = $transport;
-            } else {
-                $this->builtTransport = TransportFactory::lazy($this->config(), static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
-            }
-        }
-
-        return $this->builtTransport;
+        return $this->services()->transport();
     }
 
     public function normalizer(): UrlNormalizerInterface
     {
-        return $this->normalizer ??= new UrlNormalizer($this->config()->baseUrl, $this->config()->maxUrlLength);
+        return $this->services()->normalizer();
     }
 
     public function throttle(): ThrottleInterface
     {
-        return $this->throttle ??= TokenBucket::fromConfig($this->config(), $this->logger());
+        return $this->services()->throttle();
     }
 
     /**
@@ -268,32 +281,17 @@ final class IndexNowComponent extends Component implements BootstrapInterface
      */
     public function debounceStore(): DebounceStoreInterface
     {
-        if ($this->builtDebounce === null) {
-            if ($this->debounceStore !== null) {
-                $store = Instance::ensure($this->debounceStore, DebounceStoreInterface::class);
-                \assert($store instanceof DebounceStoreInterface);
-                $this->builtDebounce = $store;
-            } else {
-                $config = $this->config();
-                $this->builtDebounce = DebounceStoreFactory::fromConfig(
-                    $config,
-                    static fn(string $id): DebounceStoreInterface => new YiiCacheDebounceStore(Instance::ensure($id, CacheInterface::class), $config->debounceKeyPrefix),
-                    self::DEFAULT_DEBOUNCE_STORE,
-                );
-            }
-        }
-
-        return $this->builtDebounce;
+        return $this->services()->debounceStore();
     }
 
     public function submitter(): SubmitterInterface
     {
-        return $this->submitter ??= new Submitter(new Client($this->transport(), $this->keys(), $this->config(), $this->logger(), $this->throttle(), $this->normalizer()), $this->config(), $this->debounceStore(), $this->logger(), $this->normalizer());
+        return $this->services()->submitter();
     }
 
     public function collector(): CollectorInterface
     {
-        return $this->collector ??= Collector::fromConfig($this->config(), $this->logger());
+        return $this->services()->collector();
     }
 
     /**
@@ -301,37 +299,15 @@ final class IndexNowComponent extends Component implements BootstrapInterface
      */
     public function dispatcher(): DispatcherInterface
     {
-        if ($this->builtDispatcher === null) {
-            if ($this->dispatcher !== null) {
-                $dispatcher = Instance::ensure($this->dispatcher, DispatcherInterface::class);
-                \assert($dispatcher instanceof DispatcherInterface);
-                $this->builtDispatcher = $dispatcher;
-            } else {
-                $config = $this->config();
-                $this->builtDispatcher = DispatcherFactory::fromConfig($config, $this->submitter(), $this->logger(), function () use ($config): DispatcherInterface {
-                    $queue = $this->block('queue');
-                    $ttr = $queue['ttr'] ?? null;
-                    $delay = $queue['delay'] ?? null;
-                    $priority = $queue['priority'] ?? null;
-
-                    return new QueueDispatcher(fn(): Queue => $this->queue(), $config, $this->logger(), is_numeric($ttr) ? (int) $ttr : 300, is_numeric($delay) ? (int) $delay : 0, \is_int($priority) || \is_string($priority) ? $priority : null);
-                });
-            }
-        }
-
-        return $this->builtDispatcher;
+        return $this->services()->dispatcher();
     }
 
     public function routeResolver(): RouteUrlResolverInterface
     {
-        if ($this->routeResolver === null) {
-            $router = $this->block('router');
-            $languages = \is_array($router['languages'] ?? null) ? array_values(array_filter($router['languages'], 'is_string')) : [];
-            $parameter = $router['language_parameter'] ?? 'language';
-            $this->routeResolver = new YiiRouteUrlResolver($this->config(), $languages, \is_string($parameter) && $parameter !== '' ? $parameter : 'language', (bool) ($router['set_app_language'] ?? true));
-        }
+        $router = $this->services()->router();
+        \assert($router instanceof RouteUrlResolverInterface, 'the component always gives the builder a router');
 
-        return $this->routeResolver;
+        return $router;
     }
 
     /**
@@ -340,29 +316,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
      */
     public function guardedResolver(): GuardedUrlResolver
     {
-        if ($this->guardedResolver === null) {
-            if ($this->urlResolver !== null) {
-                $resolver = Instance::ensure($this->urlResolver, UrlResolverInterface::class);
-                \assert($resolver instanceof UrlResolverInterface);
-            } else {
-                $locator = new ArrayResolverLocator([], locate: static function (string $id): ?object {
-                    try {
-                        $resolver = App::component($id);
-                        if ($resolver === null && (Yii::$container->has($id) || class_exists($id))) {
-                            $resolver = Yii::$container->get($id);
-                        }
-                    } catch (Throwable $e) {
-                        throw new ConfigurationException(\sprintf('IndexNow URL resolver "%s" cannot be built: %s', $id, $e->getMessage()), 0, $e);
-                    }
-
-                    return \is_object($resolver) ? $resolver : null;
-                }, hint: 'a component, a container definition');
-                $resolver = AttributeUrlResolver::fromConfig($this->config(), $this->rules(), $this->routeResolver(), $locator, $this->logger());
-            }
-            $this->guardedResolver = new GuardedUrlResolver($resolver, $this->rules(), $this->logger());
-        }
-
-        return $this->guardedResolver;
+        return $this->services()->guardedResolver();
     }
 
     public function staging(): VerifyingStaging
@@ -400,28 +354,67 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     public function keyFileResponder(): KeyFileResponder
     {
-        return $this->keyFileResponder ??= KeyFileResponder::fromConfig($this->config(), $this->keys());
+        return $this->services()->keyFileResponder();
     }
 
     public function checker(): CheckerInterface
     {
-        if ($this->checker === null) {
-            $checks = [
-                new QueueCheck($this->options, $this->config()->dispatch, $this->queueExists()),
-                new DebounceStoreCheck($this->config(), (new CacheProbe())(...), self::DEFAULT_DEBOUNCE_STORE),
-                new UrlManagerCheck($this->options),
-                new ActiveRecordCheck($this->activeRecordEnabled(), $this->modelClasses()),
-                new SitemapSpoolCheck($this->sitemapConfig()),
-            ];
-            foreach ($this->checks as $check) {
-                $instance = Instance::ensure($check, CheckInterface::class);
-                \assert($instance instanceof CheckInterface);
-                $checks[] = $instance;
-            }
-            $this->checker = new Checker($this->config(), $this->keys(), $this->transport(), $checks);
+        return $this->services()->checker();
+    }
+
+    /**
+     * The lines of `php yii indexnow/check` beyond the core's own: the Yii pieces, then the `checks` property.
+     *
+     * @return list<CheckInterface>
+     */
+    private function checks(Services $services): array
+    {
+        $checks = [
+            new QueueCheck($this->options, $services->config->dispatch, $this->queueExists()),
+            new DebounceStoreCheck($services->config, (new CacheProbe())(...), self::DEFAULT_DEBOUNCE_STORE),
+            new UrlManagerCheck($this->options),
+            new ActiveRecordCheck($this->activeRecordEnabled(), $this->modelClasses()),
+            new SitemapSpoolCheck($this->sitemapConfig()),
+        ];
+        foreach ($this->checks as $check) {
+            $checks[] = $this->ensure($this->reference($check), CheckInterface::class);
         }
 
-        return $this->checker;
+        return $checks;
+    }
+
+    /**
+     * @return array<string, mixed>|object|string what `Instance::ensure()` accepts, or an InvalidConfigException naming the value
+     */
+    private function reference(mixed $value): array|object|string
+    {
+        if (\is_object($value) || \is_string($value)) {
+            return $value;
+        }
+        if (\is_array($value)) {
+            /** @var array<string, mixed> $value */
+            return $value;
+        }
+
+        throw new InvalidConfigException(\sprintf('indexnow: an override must be an instance, a config array, a class name or a component id, got %s.', get_debug_type($value)));
+    }
+
+    /**
+     * A property override (an instance, a config array, a class name or a component id) as the type it must be.
+     *
+     * @template T of object
+     *
+     * @param array<string, mixed>|object|string $reference
+     * @param class-string<T>                    $type
+     *
+     * @return T
+     */
+    private function ensure(array|object|string $reference, string $type): object
+    {
+        $instance = Instance::ensure($reference, $type);
+        \assert($instance instanceof $type);
+
+        return $instance;
     }
 
     // -- the application-facing API ----------------------------------------------------------------------------------
@@ -515,14 +508,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     /** Flush point: nothing collected means nothing built, so an idle request pays nothing. */
     public function flushIfCollected(): void
     {
-        if ($this->kit === null || $this->kit->collector->isEmpty()) {
-            return;
-        }
-        try {
-            $this->kit->flush();
-        } catch (Throwable $e) {
-            $this->logger()->error('indexnow: flush failed: {error}', ['error' => $e->getMessage(), 'exception' => $e]);
-        }
+        $this->services?->flushIfCollected();
     }
 
     // -- options -----------------------------------------------------------------------------------------------------
