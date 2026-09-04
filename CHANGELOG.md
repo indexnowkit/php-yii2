@@ -5,7 +5,20 @@ contain breaking changes, listed under "Changed".
 
 ## [0.5.0] — 2026-09-05
 
+`Retry-After` and the `retry.*` backoff are honoured by the yii2-queue job, which re-pushes the rejected URLs itself.
+Migration: **`SubmitUrlsJob` no longer throws on 429/5xx**, so the retry settings of the queue (`attempts`, `ttr`
+of the driver) do not limit them any more; set `retry.max_attempts` and the `retry.*` delays in the component
+options instead. Nothing else changes for a 403 (still logged, no retry).
+
 ### Changed
+
+- **`Queue\SubmitUrlsJob` re-pushes retryable failures instead of throwing.** After a 429, 5xx or network failure the
+  job pushes a new `SubmitUrlsJob` with the rejected URLs, the same `id`, `attempt + 1` and the delay of the core's
+  `Retry\RetryPolicy` built from `retry.*` (`Retry-After` first), then ends successfully; at `retry.max_attempts` it
+  logs `giving up on N URL(s) of job <id>` at error and ends. New public property `attempt` (1 from the dispatcher).
+  `canRetry()` keeps its previous behaviour for exceptions (`RetryableSubmissionException` within `maxAttempts`), the
+  job itself no longer throws it. The sync driver ignores the delay: the attempts run back-to-back in one `run()`;
+  `indexnow/check` says so. [docs/queue.md](docs/queue.md).
 
 - Internal refactor, no API change: the `Adapter\ServicesBuilder` description of the graph and the `check` lines
   moved from `IndexNowComponent` to `Wiring`, the resolution of the override properties to `References`. The

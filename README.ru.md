@@ -89,7 +89,8 @@ Accessor'ы читают атрибуты и отношения AR (`category.sl
 - Всё собранное за запрос уходит **после ответа** (`Response::EVENT_AFTER_SEND`) одним батчем; консольные команды
   сбрасывают при завершении, воркеры очереди — после каждой job.
 - `dispatch: auto` (по умолчанию) кладёт `SubmitUrlsJob` в компонент `queue`, если настроен `yiisoft/yii2-queue`
-  (429/5xx повторяет очередь), иначе отправляет синхронно.
+  (429/5xx job перекладывает в очередь с задержкой из `retry.*`, `Retry-After` учитывается), иначе отправляет
+  синхронно. Подробности: [docs/queue.md](docs/queue.md).
 - Ничто из правила, резолвера или HTTP-слоя не долетает до приложения: пишется в лог (категория `indexnow`), сохранение
   проходит. Невалидная конфигурация выключает IndexNow с одной строкой `critical`; точную ошибку печатает `php yii indexnow/check`.
 
@@ -119,7 +120,8 @@ installed (…)`, блок `sitemap` в опциях игнорируется, `
 ## Конфигурация и документация
 
 Все опции: [docs/configuration.md](docs/configuration.md). Commit-safety: [docs/commit-safety.md](docs/commit-safety.md).
-Замена частей, свои резолверы и проверки: [docs/extending.md](docs/extending.md). Тесты интеграции: [docs/testing.md](docs/testing.md).
+Замена частей, свои резолверы и проверки: [docs/extending.md](docs/extending.md). Очередь, повторы, отказы:
+[docs/queue.md](docs/queue.md). Тесты интеграции: [docs/testing.md](docs/testing.md).
 
 ## Отладка
 
@@ -134,7 +136,8 @@ installed (…)`, блок `sitemap` в опциях игнорируется, `
   `Yii::$app->indexnow->submitRecords(Post::find()->where(...)->all())` или `php yii indexnow/submit-record`.
 - `link()` / `unlink()` пишут junction-строку командой без события владельца: сохраните владельца с новой меткой времени
   (`$post->updated_at = time(); $post->save(false)`) или вызовите `submitRecord($post)`.
-- Повторы в `yii2-queue` — драйверные (`ttr`, `attempts`); `Retry-After` учесть нельзя.
+- Sync-драйвер `yii2-queue` игнорирует задержку между попытками: 429/5xx повторяются подряд (только для разработки,
+  `check` предупреждает).
 - Без красивых URL файл ключа не маршрутизируется: включите их либо отдавайте `/<key>.txt` статикой и поставьте
   `key_file.enabled: false`.
 

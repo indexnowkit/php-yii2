@@ -10,7 +10,7 @@ use IndexNowKit\Yii2\App;
 use yii\queue\sync\Queue as SyncQueue;
 
 /**
- * `dispatch: queue` needs the yii2-queue component; the sync driver works but retries nothing.
+ * `dispatch: queue` needs the yii2-queue component; the sync driver works but ignores the delay between attempts.
  */
 final class QueueCheck implements CheckInterface
 {
@@ -35,7 +35,7 @@ final class QueueCheck implements CheckInterface
         }
         $component = App::component($id);
         if ($component instanceof SyncQueue) {
-            $report->warning(\sprintf('queue: component "%s" is the sync driver, SubmitUrlsJob runs inline; 429/5xx are not retried. Use a real driver in production.', $id));
+            $report->warning(\sprintf('queue: component "%s" is the sync driver, SubmitUrlsJob runs inline and the delay of a 429/5xx re-push is ignored (attempts run back-to-back). Use a real driver in production.', $id));
 
             return;
         }

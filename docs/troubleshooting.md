@@ -30,7 +30,8 @@ category at `debug` (`log.targets[].categories = ['indexnow']`, `levels = ['erro
 | Symptom | Cause | Fix |
 |---|---|---|
 | `check`: `queue component "queue" is not configured` | `dispatch: queue` (or `auto` resolved to it) without yii2-queue | install `yiisoft/yii2-queue` and configure the component, or `dispatch: sync` |
-| jobs run but nothing is retried | `yii\queue\sync\Queue` handles jobs inline, without retries | a real driver (db, redis, amqp); `check` warns about `SyncQueue` |
+| 429/5xx attempts run back-to-back, no delay | `yii\queue\sync\Queue` ignores the delay of the re-push | a real driver (db, redis, amqp); `check` warns about `SyncQueue` |
+| the queue's `attempts` does not limit 429/5xx | the job re-pushes them itself, up to `retry.max_attempts` | set `retry.max_attempts` (and `retry.*` delays) in the component options, see [queue.md](queue.md) |
 | `ttr` exceeded on large batches | `queue.ttr` (300 s) is too small for the batch count | raise `queue.ttr`, or lower `batch.max_urls` |
 
 ## Sitemap

@@ -97,7 +97,8 @@ Full model, typed parameters, inheritance and the semantics table:
 - Everything collected during one request is sent **after the response** (`Response::EVENT_AFTER_SEND`), in one
   batch; console commands flush when they end, queue workers after every job.
 - `dispatch: auto` (default) pushes a `SubmitUrlsJob` to the `queue` component when `yiisoft/yii2-queue` is
-  configured (429/5xx retried by the queue), else sends synchronously.
+  configured (429/5xx re-pushed with the delay of `retry.*`, `Retry-After` honoured), else sends synchronously.
+  Details: [docs/queue.md](docs/queue.md).
 - Nothing thrown from a rule, a resolver or the HTTP layer reaches your application: it is logged under the
   `indexnow` category, the save succeeds. An invalid configuration disables IndexNow with one `critical` line;
   `php yii indexnow/check` prints the exact error.
@@ -129,7 +130,8 @@ the same sentence. Nothing is logged about it.
 
 Every option, its default and what it does: [docs/configuration.md](docs/configuration.md). Commit safety:
 [docs/commit-safety.md](docs/commit-safety.md). Replacing pieces, custom resolvers, checks:
-[docs/extending.md](docs/extending.md). Testing your integration: [docs/testing.md](docs/testing.md).
+[docs/extending.md](docs/extending.md). Queue, retries, failures: [docs/queue.md](docs/queue.md). Testing your
+integration: [docs/testing.md](docs/testing.md).
 
 ## Debugging
 
@@ -144,7 +146,8 @@ URL was or was not submitted. Symptoms and fixes: [docs/troubleshooting.md](docs
   `Yii::$app->indexnow->submitRecords(Post::find()->where(...)->all())` or `php yii indexnow/submit-record` afterwards.
 - `link()` / `unlink()` write the junction row with a plain command, no event on the owner: save the owner with a
   bumped timestamp afterwards (`$post->updated_at = time(); $post->save(false)`), or call `submitRecord($post)`.
-- Retries in `yii2-queue` are the driver's (`ttr`, `attempts`); `Retry-After` cannot be honoured.
+- The sync driver of `yii2-queue` ignores the delay between attempts: 429/5xx attempts run back-to-back
+  (development only, `check` warns).
 - Without pretty URLs the key file cannot be routed: enable them, or serve `/<key>.txt` as a static file and set
   `key_file.enabled: false`.
 
