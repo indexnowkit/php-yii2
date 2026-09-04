@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Standalone configuration for the split repository (indexnowkit/php-yii2). The monorepo uses php/phpunit.xml.dist. -->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php" colors="true" failOnWarning="true" failOnDeprecation="false" cacheDirectory=".phpunit.cache">
+    <testsuites>
+        <testsuite name="yii2"><directory>tests</directory></testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>
