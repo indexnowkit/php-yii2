@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\ActiveRecord;
 
+use IndexNowKit\Hook\ObserverHelper;
 use IndexNowKit\IndexNowKit;
 use IndexNowKit\Transaction\VerifyingStaging;
+use IndexNowKit\Url\ObjectChangeHandler;
 use IndexNowKit\Url\ResolvedUrl;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use SplObjectStorage;
 use Throwable;
-use WeakMap;
 use yii\base\Event as YiiEvent;
 use yii\db\ActiveRecord;
 use yii\db\AfterSaveEvent;
@@ -27,30 +29,30 @@ use yii\db\Query;
  * Yii2, the re-read catches it); EVENT_ROLLBACK_TRANSACTION drops them.
  *
  * Nothing here throws into the application: the core's ObjectChangeHandler logs and yields nothing on a bad rule,
- * and every hand-off is guarded.
+ * and every hand-off is guarded by `Hook\ObserverHelper`. What is Yii's: the change set from `changedAttributes`,
+ * the previous state, the verify-on-commit staging over the connection's events.
  */
 final class IndexNowObserver
 {
     /** ActiveRecord events the observer handles. */
     public const EVENTS = [BaseActiveRecord::EVENT_AFTER_INSERT, BaseActiveRecord::EVENT_AFTER_UPDATE, BaseActiveRecord::EVENT_BEFORE_DELETE, BaseActiveRecord::EVENT_AFTER_DELETE];
 
-    /** @var WeakMap<BaseActiveRecord, list<string>> URLs resolved in beforeDelete, delivered in afterDelete */
-    private WeakMap $pendingDeletions;
+    private readonly ObserverHelper $helper;
 
-    /** @var WeakMap<Connection, true> connections whose commit/rollback events are already hooked */
-    private WeakMap $hooked;
+    /** @var SplObjectStorage<Connection, true> connections whose commit/rollback events are already hooked (application-long objects) */
+    private SplObjectStorage $hooked;
 
     /** @var array<class-string, true> classes hooked through class-level events (observe()/models) */
     private array $attached = [];
 
     public function __construct(
-        private readonly IndexNowKit $indexNow,
+        IndexNowKit $indexNow,
         private readonly VerifyingStaging $staging,
         private readonly LoggerInterface $logger = new NullLogger(),
         private readonly bool $enabled = true,
     ) {
-        $this->pendingDeletions = new WeakMap();
-        $this->hooked = new WeakMap();
+        $this->helper = new ObserverHelper($indexNow, $logger);
+        $this->hooked = new SplObjectStorage();
     }
 
     /**
@@ -86,7 +88,7 @@ final class IndexNowObserver
         }
         // columns left null get their database default: only what the record set is compared
         $written = array_filter($record->getAttributes(), static fn(mixed $v): bool => $v !== null);
-        $this->guard($record, fn(): array => $this->indexNow->changes()->created($record), fn(): bool => $this->rowMatches($record, $written));
+        $this->guard($record, static fn(ObjectChangeHandler $changes): array => $changes->created($record), fn(): bool => $this->rowMatches($record, $written));
     }
 
     public function afterUpdate(YiiEvent $event): void
@@ -105,14 +107,10 @@ final class IndexNowObserver
             $changeSet[(string) $field] = [$previous, $record->getAttribute((string) $field)];
             $expected[(string) $field] = $record->getAttribute((string) $field);
         }
-        $this->guard($record, function () use ($record, $changeSet): array {
-            $changes = $this->indexNow->changes();
-
-            return [
-                ...$changes->renamed($record, $changeSet, $this->previousState($record, $changeSet), self::primaryKeyFields($record)),
-                ...$changes->updated($record, array_keys($changeSet), $changeSet),
-            ];
-        }, fn(): bool => $this->rowMatches($record, $expected));
+        $this->guard($record, fn(ObjectChangeHandler $changes): array => [
+            ...$changes->renamed($record, $changeSet, $this->previousState($record, $changeSet), self::primaryKeyFields($record)),
+            ...$changes->updated($record, array_keys($changeSet), $changeSet),
+        ], fn(): bool => $this->rowMatches($record, $expected));
     }
 
     /** Before the row disappears: resolve now, deliver in afterDelete(). */
@@ -122,10 +120,9 @@ final class IndexNowObserver
         if ($record === null || !$this->enabled) {
             return;
         }
-        try {
-            $this->pendingDeletions[$record] = ResolvedUrl::urls($this->indexNow->changes()->deleted($record));
-        } catch (Throwable $e) {
-            $this->logger->error('indexnow: cannot resolve the URLs of {class} before deletion: {error}', ['class' => $record::class, 'error' => $e->getMessage(), 'exception' => $e]);
+        $urls = $this->helper->guard($record, static fn(ObjectChangeHandler $changes): array => $changes->deleted($record));
+        if ($urls !== null) {
+            $this->helper->rememberDeletion($record, $urls);
         }
     }
 
@@ -136,12 +133,11 @@ final class IndexNowObserver
             return;
         }
         $pk = self::primaryKey($record);
-        $urls = $this->pendingDeletions[$record] ?? null;
-        unset($this->pendingDeletions[$record]);
+        $urls = $this->helper->takeDeletion($record);
         $verifier = fn(): bool => $this->rowByPrimaryKey($record, $pk) === null;
         if ($urls === null) {
             // beforeDelete() was not seen; the record still carries its attributes after deleteInternal().
-            $this->guard($record, fn(): array => $this->indexNow->changes()->deleted($record), $verifier);
+            $this->guard($record, static fn(ObjectChangeHandler $changes): array => $changes->deleted($record), $verifier);
 
             return;
         }
@@ -149,25 +145,18 @@ final class IndexNowObserver
     }
 
     /**
-     * @param callable(): list<ResolvedUrl> $resolve
-     * @param callable(): bool              $verifier
+     * @param callable(ObjectChangeHandler): list<ResolvedUrl> $resolve
+     * @param callable(): bool                                 $verifier
      */
     private function guard(BaseActiveRecord $record, callable $resolve, callable $verifier): void
     {
         if (!$this->enabled) {
             return;
         }
-        try {
-            $resolved = $resolve();
-        } catch (Throwable $e) {
-            $this->logger->error('indexnow: cannot resolve the URLs of {class}: {error}', ['class' => $record::class, 'error' => $e->getMessage(), 'exception' => $e]);
-
-            return;
+        $urls = $this->helper->guard($record, $resolve);
+        if ($urls !== null) {
+            $this->handOff($record, $urls, $verifier);
         }
-        foreach ($resolved as $item) {
-            $this->logger->debug('indexnow: {source} ({event}) -> {url}', ['source' => $item->source(), 'event' => $item->event->value, 'url' => $item->url]);
-        }
-        $this->handOff($record, ResolvedUrl::urls($resolved), $verifier);
     }
 
     /**
@@ -198,10 +187,10 @@ final class IndexNowObserver
 
     private function hookConnection(Connection $db): void
     {
-        if (isset($this->hooked[$db])) {
+        if ($this->hooked->contains($db)) {
             return;
         }
-        $this->hooked[$db] = true;
+        $this->hooked->attach($db, true);
         $db->on(Connection::EVENT_COMMIT_TRANSACTION, function () use ($db): void {
             $this->deliver($this->staging->flush($db));
         });
@@ -215,14 +204,7 @@ final class IndexNowObserver
      */
     private function deliver(array $urls): void
     {
-        if ($urls === []) {
-            return;
-        }
-        try {
-            $this->indexNow->collect($urls);
-        } catch (Throwable $e) {
-            $this->logger->error('indexnow: cannot collect {count} URL(s): {error}', ['count' => \count($urls), 'error' => $e->getMessage(), 'exception' => $e]);
-        }
+        $this->helper->deliver($urls);
     }
 
     /**

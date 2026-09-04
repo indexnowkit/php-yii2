@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Queue;
 
 use IndexNowKit\Config;
-use IndexNowKit\Result;
-use IndexNowKit\ResultStatus;
+use IndexNowKit\Retry\WorkerOutcome;
 use IndexNowKit\Yii2\App;
 use RuntimeException;
 use yii\base\BaseObject;
@@ -50,22 +49,14 @@ final class SubmitUrlsJob extends BaseObject implements RetryableJobInterface
             throw new RuntimeException(\sprintf('indexnow: component "%s" is not configured in the worker application.', $this->component));
         }
         $logger = $component->logger();
-        $results = $component->submitter()->submit($this->urls);
-        $retryable = Result::retryableUrls($results);
-        if ($retryable !== []) {
-            $logger->info('indexnow: {count} URL(s) of job {id} were not accepted and will be retried by the queue', ['count' => \count($retryable), 'id' => $this->id]);
+        $outcome = WorkerOutcome::of($component->submitter()->submit($this->urls));
+        if ($outcome->hasRetryable()) {
+            $logger->info(...$outcome->retryLog($this->id));
 
-            throw new RetryableSubmissionException(\sprintf('IndexNow: %d URL(s) still rejected (job %s)', \count($retryable), $this->id));
+            throw new RetryableSubmissionException(\sprintf('IndexNow: %d URL(s) still rejected (job %s)', \count($outcome->retryUrls), $this->id));
         }
-        $final = Result::urlsWhere($results, static fn(Result $r): bool => $r->status === ResultStatus::Failed && !$r->retryable);
-        if ($final !== []) {
-            $reasons = [];
-            foreach ($results as $result) {
-                if ($result->status === ResultStatus::Failed && !$result->retryable) {
-                    $reasons[] = \sprintf('%s %s', $result->engine, $result->httpCode !== null ? (string) $result->httpCode : ($result->reason->value ?? 'failed'));
-                }
-            }
-            $logger->error('indexnow: {count} URL(s) of job {id} rejected permanently ({reasons}); run "php yii indexnow/check"', ['count' => \count($final), 'id' => $this->id, 'reasons' => implode(', ', array_unique($reasons))]);
+        if ($outcome->hasFinalFailures()) {
+            $logger->error(...$outcome->finalLog($this->id, 'php yii indexnow/check'));
         }
     }
 

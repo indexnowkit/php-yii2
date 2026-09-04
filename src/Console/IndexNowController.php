@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Console;
 
 use IndexNowKit\Console\CheckRunner;
+use IndexNowKit\Console\CommandDefinition;
+use IndexNowKit\Console\Definitions;
 use IndexNowKit\Console\ExitCode;
 use IndexNowKit\Console\ExplainRunner;
 use IndexNowKit\Console\KeyGenerateRunner;
@@ -17,6 +19,7 @@ use IndexNowKit\Console\SubmitSubjectsRunner;
 use IndexNowKit\Console\SubmitterFactory;
 use IndexNowKit\Console\SubmitterFactoryInterface;
 use IndexNowKit\Console\Vocabulary;
+use IndexNowKit\Sitemap\Console\Definitions as SitemapDefinitions;
 use IndexNowKit\Sitemap\Console\SitemapOptions;
 use IndexNowKit\Sitemap\Console\SitemapRunner;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordLoader;
@@ -85,17 +88,9 @@ final class IndexNowController extends Controller
 
     public function options($actionID): array
     {
-        $common = ['verbose'];
+        $definition = $this->definitions()[$actionID] ?? null;
 
-        return array_merge(parent::options($actionID), match ($actionID) {
-            'check' => [...$common, 'live', 'host', 'probeUrl'],
-            'submit' => [...$common, 'force', 'dryRun', 'json'],
-            'submit-record' => [...$common, 'event', 'limit', 'explain', 'force', 'dryRun', 'json'],
-            'explain' => [...$common, 'event'],
-            'sitemap' => [...$common, 'changedSince', 'allowForeignHosts', 'force', 'dryRun', 'json'],
-            'key-generate' => [...$common, 'length', 'alphanumeric', 'writeEnv', 'force'],
-            default => $common,
-        });
+        return array_merge(parent::options($actionID), ['verbose'], $definition?->yiiOptions() ?? []);
     }
 
     /**
@@ -103,7 +98,32 @@ final class IndexNowController extends Controller
      */
     public function optionAliases(): array
     {
-        return parent::optionAliases() + ['f' => 'force', 'l' => 'length', 'v' => 'verbose'];
+        $aliases = ['v' => 'verbose'];
+        foreach ($this->definitions() as $definition) {
+            $aliases += $definition->yiiAliases();
+        }
+
+        return parent::optionAliases() + $aliases;
+    }
+
+    /**
+     * The inputs of every action, from the shared definitions: the same names, shortcuts and descriptions as the
+     * bundle's and artisan's commands.
+     *
+     * @return array<string, CommandDefinition>
+     */
+    private function definitions(): array
+    {
+        $words = $this->words();
+
+        return [
+            'check' => Definitions::check(),
+            'submit' => Definitions::submit(),
+            'submit-record' => Definitions::submitSubjects($words),
+            'explain' => Definitions::explain($words),
+            'sitemap' => SitemapDefinitions::sitemap(),
+            'key-generate' => Definitions::keyGenerate(),
+        ];
     }
 
     /** Validate the configuration, verify the key file is reachable, report how submissions are wired. */
