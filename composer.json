@@ -3,6 +3,8 @@
     "description": "IndexNow for Yii2: notify Yandex, Bing, Naver and Seznam when ActiveRecord rows change. #[IndexNow] attribute on the model, commit-safe without transaction hooks, key file route, console commands, yii2-queue dispatch.",
     "type": "yii2-extension",
     "license": "MIT",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
     "keywords": [
         "indexnow",
         "yii2",
