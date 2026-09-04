@@ -120,6 +120,13 @@ Every option, its default and what it does: [docs/configuration.md](docs/configu
 [docs/commit-safety.md](docs/commit-safety.md). Replacing pieces, custom resolvers, checks:
 [docs/extending.md](docs/extending.md). Testing your integration: [docs/testing.md](docs/testing.md).
 
+## Debugging
+
+`php yii indexnow/check` validates the options, fetches the key file and reports how submissions are wired (queue,
+cache, pretty URLs, ActiveRecord hooks, sitemap spool); `php yii indexnow/explain app\models\Post 1` shows the
+rules, guards and URLs of one record without sending anything; the `indexnow` log category at `debug` tells why a
+URL was or was not submitted. Symptoms and fixes: [docs/troubleshooting.md](docs/troubleshooting.md).
+
 ## Limitations
 
 - `updateAll()`, `deleteAll()`, `updateAttributes()`, `updateCounters()` fire no events (conformance A13): call

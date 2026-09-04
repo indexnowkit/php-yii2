@@ -3,6 +3,34 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.2.0] — 2026-09-04
+
+The core 0.4 "adapter kit" release: the component is built on the core's factories and `Adapter\ConfigFactory`,
+and the sitemap reader is `indexnowkit/sitemap` (required by this package, installed transitively). Options,
+commands and the component's properties do not change.
+
+### Added
+
+- `docs/troubleshooting.md` and a Debugging section in the README.
+- `IndexNowComponent::sitemapConfig()`: the validated `sitemap` block; an invalid one is logged at `critical` and
+  disables `php yii indexnow/sitemap` (`sitemap.enabled is false.`, exit 2).
+
+### Changed
+
+- Requires `indexnowkit/core ^0.4` and `indexnowkit/sitemap ^0.1`. The sitemap classes moved:
+  `IndexNowKit\Sitemap\*` keep their names, `Console\SitemapRunner`/`SitemapOptions` are `Sitemap\Console\*`,
+  `Check\SitemapSpoolCheck` is `Sitemap\Check\SitemapSpoolCheck`. `IndexNowKit::sitemap()` is gone:
+  `IndexNowComponent::sitemapSource()` stays.
+- `Config\ConfigFactory` is a declaration of the core's `Adapter\ConfigFactory` (`dispatch: auto` resolved by the
+  queue component, "queue component is not configured" post-check); `coreOptions()` is gone. A typo inside
+  `key_file`/`sitemap` (`key_file.enabld`) is warned about again.
+- `Check\CacheCheck` is the core's `Check\DebounceStoreCheck` with `Check\CacheProbe`; `Url\ContainerResolverLocator`
+  is the core's `ArrayResolverLocator(locate:)`; both classes are removed. `ActiveRecordLoader` delegates to
+  `Console\ClassNameResolver`.
+- `IndexNowComponent::submitRecords()`/`urlsForAll()` delegate to `IndexNowKit::submitAll()`/`urlsForAll()`;
+  `KeyFileController` sends `Config::keyFileHeaders()`.
+- Dev tooling: phpstan runs on the `lowest` flavour too; phpstan floors are the current releases.
+
 ## [0.1.0] — 2026-09-04
 
 First release. Yii2 ≥ 2.0.45, PHP 8.2–8.5, `indexnowkit/core ^0.3.1`.

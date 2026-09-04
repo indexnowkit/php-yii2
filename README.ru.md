@@ -110,6 +110,13 @@ Accessor'ы читают атрибуты и отношения AR (`category.sl
 Все опции: [docs/configuration.md](docs/configuration.md). Commit-safety: [docs/commit-safety.md](docs/commit-safety.md).
 Замена частей, свои резолверы и проверки: [docs/extending.md](docs/extending.md). Тесты интеграции: [docs/testing.md](docs/testing.md).
 
+## Отладка
+
+`php yii indexnow/check` проверяет опции, скачивает файл ключа и показывает, как подключена отправка (очередь,
+кэш, красивые URL, хуки ActiveRecord, spool sitemap); `php yii indexnow/explain app\models\Post 1` показывает
+правила, guard-условия и URL одной записи, ничего не отправляя; категория лога `indexnow` на уровне `debug`
+объясняет, почему URL был или не был отправлен. Симптомы и решения: [docs/troubleshooting.md](docs/troubleshooting.md).
+
 ## Ограничения
 
 - `updateAll()`, `deleteAll()`, `updateAttributes()`, `updateCounters()` событий не вызывают (A13): после них
