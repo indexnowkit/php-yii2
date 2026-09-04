@@ -10,6 +10,7 @@ use IndexNowKit\Console\Definitions;
 use IndexNowKit\Console\ExitCode;
 use IndexNowKit\Console\ExplainRunner;
 use IndexNowKit\Console\KeyGenerateRunner;
+use IndexNowKit\Console\OptionDefinition;
 use IndexNowKit\Console\ResultFormatterInterface;
 use IndexNowKit\Console\ResultRenderer;
 use IndexNowKit\Console\SubjectLoaderInterface;
@@ -29,6 +30,7 @@ use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Yii;
+use yii\base\Action;
 use yii\base\InvalidConfigException;
 use yii\console\Controller;
 use yii\di\Instance;
@@ -82,6 +84,9 @@ final class IndexNowController extends Controller
     public int|string $length = 32;
     public bool $alphanumeric = false;
     public mixed $writeEnv = null;
+    /**
+     * @var bool more output (-v)
+     */
     public bool $verbose = false;
 
     /**
@@ -109,6 +114,50 @@ final class IndexNowController extends Controller
         }
 
         return parent::optionAliases() + $aliases;
+    }
+
+    /**
+     * The help of the options from the shared definitions: Yii reads the comments from the property docblocks of the
+     * controller, the definitions hold the texts the bundle and artisan print, so `php yii help indexnow/submit`
+     * matches them (the default too, when the definition has one). `sitemap` without indexnowkit/sitemap keeps Yii's.
+     *
+     * @param Action<static> $action
+     *
+     * @return array<string, array{type: ?string, default: mixed, comment: string}>
+     */
+    public function getActionOptionsHelp($action): array
+    {
+        /** @var array<string, array{type: ?string, default: mixed, comment: string}> $help */
+        $help = parent::getActionOptionsHelp($action);
+        $definition = $this->definitions()[$action->id] ?? null;
+        if ($definition === null) {
+            return $help;
+        }
+        $unified = [];
+        foreach ($help as $name => $entry) {
+            $option = self::optionNamed($definition, $name);
+            if ($option === null) {
+                $unified[$name] = $entry;
+
+                continue;
+            }
+            $default = $option->default === null ? $entry['default'] : (is_numeric($option->default) && \is_int($entry['default']) ? (int) $option->default : $option->default);
+            $type = $entry['type'] ?? ($option->mode === OptionDefinition::FLAG ? 'boolean, 0 or 1' : 'string');
+            $unified[$name] = ['type' => $type, 'default' => $default, 'comment' => $option->description];
+        }
+
+        return $unified;
+    }
+
+    private static function optionNamed(CommandDefinition $definition, string $name): ?OptionDefinition
+    {
+        foreach ($definition->options as $option) {
+            if ($option->name === $name) {
+                return $option;
+            }
+        }
+
+        return null;
     }
 
     /**

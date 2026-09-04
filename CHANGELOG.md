@@ -3,6 +3,15 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.5.0] — 2026-09-05
+
+### Fixed
+
+- `php yii help indexnow/<action>` describes the options with the texts and defaults of the core's
+  `Console\Definitions` (and `Sitemap\Console\Definitions`), the same the bundle and artisan print:
+  `IndexNowController::getActionOptionsHelp()` reads them from the definitions instead of the property docblocks of
+  the controller. `sitemap` without `indexnowkit/sitemap` keeps Yii's help.
+
 ## [0.4.0] — 2026-09-05
 
 `indexnowkit/sitemap` is optional again (docs/spec/16, wave C): the package suggests it instead of requiring it.

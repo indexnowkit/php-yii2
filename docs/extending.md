@@ -53,7 +53,9 @@ The observer keeps only what is Yii's (the change set from `changedAttributes`, 
 verify-on-commit staging); guarding, logging and the URLs of a row about to be deleted are the core's
 `Hook\ObserverHelper`. `SubmitUrlsJob` is `Retry\WorkerOutcome` plus yii2-queue's `canRetry()` (no delay from the
 job: the queue driver's delay applies). The options of every `indexnow/<action>` come from `Console\Definitions`
-and `Sitemap\Console\Definitions`, so `php yii help indexnow/submit-record` matches the bundle and artisan.
+and `Sitemap\Console\Definitions`, names, shortcuts, descriptions and defaults (`getActionOptionsHelp()` reads them
+from the definitions, not from the property docblocks), so `php yii help indexnow/submit-record` matches the bundle
+and artisan.
 
 ## Console
 
