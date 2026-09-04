@@ -12,20 +12,18 @@ use IndexNowKit\Attribute\RuleRegistry;
 use IndexNowKit\Check\Checker;
 use IndexNowKit\Check\CheckerInterface;
 use IndexNowKit\Check\CheckInterface;
+use IndexNowKit\Check\DebounceStoreCheck;
 use IndexNowKit\Client;
 use IndexNowKit\Collector\Collector;
 use IndexNowKit\Collector\CollectorInterface;
 use IndexNowKit\Config;
+use IndexNowKit\Debounce\DebounceStoreFactory;
 use IndexNowKit\Debounce\DebounceStoreInterface;
-use IndexNowKit\Debounce\MemoryDebounceStore;
-use IndexNowKit\Debounce\NullDebounceStore;
+use IndexNowKit\Dispatch\DispatcherFactory;
 use IndexNowKit\Dispatch\DispatcherInterface;
-use IndexNowKit\Dispatch\NullDispatcher;
-use IndexNowKit\Dispatch\SyncDispatcher;
 use IndexNowKit\Event;
 use IndexNowKit\Exception\ConfigurationException;
-use IndexNowKit\Http\LazyTransport;
-use IndexNowKit\Http\Psr18Transport;
+use IndexNowKit\Http\TransportFactory;
 use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\IndexNowKit;
 use IndexNowKit\Key\KeyFileResponder;
@@ -41,6 +39,7 @@ use IndexNowKit\SubmitterInterface;
 use IndexNowKit\Throttle\ThrottleInterface;
 use IndexNowKit\Throttle\TokenBucket;
 use IndexNowKit\Transaction\VerifyingStaging;
+use IndexNowKit\Url\ArrayResolverLocator;
 use IndexNowKit\Url\AttributeUrlResolver;
 use IndexNowKit\Url\GuardedUrlResolver;
 use IndexNowKit\Url\ResolvedUrl;
@@ -51,7 +50,7 @@ use IndexNowKit\Url\UrlResolverInterface;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordSubjectReader;
 use IndexNowKit\Yii2\ActiveRecord\IndexNowObserver;
 use IndexNowKit\Yii2\Check\ActiveRecordCheck;
-use IndexNowKit\Yii2\Check\CacheCheck;
+use IndexNowKit\Yii2\Check\CacheProbe;
 use IndexNowKit\Yii2\Check\QueueCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
 use IndexNowKit\Yii2\Config\ConfigFactory;
@@ -60,9 +59,7 @@ use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
 use IndexNowKit\Yii2\Http\KeyFileController;
 use IndexNowKit\Yii2\Log\YiiLogger;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
-use IndexNowKit\Yii2\Url\ContainerResolverLocator;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
-use Psr\Http\Client\ClientInterface as PsrClient;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use Yii;
@@ -79,9 +76,11 @@ use yii\web\Response;
 use yii\web\UrlManager;
 
 /**
- * The `indexnow` application component: builds the core graph from `options`, hooks ActiveRecord (through
- * {@see ActiveRecord\IndexNowBehavior} or the `active_record.models` list), registers the key file route and the
- * console controller, and flushes the collector when the response has been sent.
+ * The `indexnow` application component: builds the core graph from `options` through the core's factories
+ * (`Http\TransportFactory`, `Debounce\DebounceStoreFactory`, `Dispatch\DispatcherFactory`, the `fromConfig()`
+ * constructors), hooks ActiveRecord (through {@see ActiveRecord\IndexNowBehavior} or the `active_record.models`
+ * list), registers the key file route and the console controller, and flushes the collector when the response has
+ * been sent.
  *
  *   'bootstrap' => ['indexnow'],
  *   'components' => ['indexnow' => ['class' => IndexNowComponent::class, 'options' => ['key' => getenv('INDEXNOW_KEY'), 'base_url' => 'https://www.example.com']]],
@@ -94,6 +93,8 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     public const CONTROLLER_ID = 'indexnow';
     public const KEY_FILE_CONTROLLER_ID = 'indexnow-key-file';
     public const KEY_FILE_ROUTE = self::KEY_FILE_CONTROLLER_ID . '/index';
+    /** The debounce store when `debounce.store` is unset: the `cache` application component. */
+    public const DEFAULT_DEBOUNCE_STORE = 'cache';
 
     /** @var array<string, mixed> the configuration tree (core options + the Yii blocks, see docs/configuration.md) */
     public array $options = [];
@@ -232,6 +233,10 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         return $this->keys ??= StaticKeyProvider::fromConfig($this->config());
     }
 
+    /**
+     * The `transport` property, else `http.client` (an application component id, a DI definition or a class of a
+     * PSR-18 client, resolved on the first request), else PSR-18 discovery.
+     */
     public function transport(): TransportInterface
     {
         if ($this->builtTransport === null) {
@@ -240,19 +245,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
                 \assert($transport instanceof TransportInterface);
                 $this->builtTransport = $transport;
             } else {
-                $client = $this->block('http')['client'] ?? null;
-                $this->builtTransport = new LazyTransport(function () use ($client): TransportInterface {
-                    $timeout = $this->config()->httpTimeout;
-                    if (!\is_string($client) || $client === '') {
-                        return Psr18Transport::discover(timeout: $timeout);
-                    }
-                    $instance = App::component($client) ?? Yii::$container->get($client);
-                    if (!$instance instanceof PsrClient) {
-                        throw new ConfigurationException(\sprintf('http.client "%s" resolves to %s, which is not a PSR-18 client.', $client, get_debug_type($instance)));
-                    }
-
-                    return Psr18Transport::discover($instance, $timeout);
-                });
+                $this->builtTransport = TransportFactory::lazy($this->config(), static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
             }
         }
 
@@ -266,9 +259,13 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     public function throttle(): ThrottleInterface
     {
-        return $this->throttle ??= new TokenBucket($this->config()->throttleMaxRequestsPerMinute, logger: $this->logger());
+        return $this->throttle ??= TokenBucket::fromConfig($this->config(), $this->logger());
     }
 
+    /**
+     * The `debounceStore` property, else `debounce.store`: `memory`, `none`, or a cache component id (the `cache`
+     * component by default) wrapped in {@see YiiCacheDebounceStore}, since Yii's cache is not PSR-16.
+     */
     public function debounceStore(): DebounceStoreInterface
     {
         if ($this->builtDebounce === null) {
@@ -277,13 +274,12 @@ final class IndexNowComponent extends Component implements BootstrapInterface
                 \assert($store instanceof DebounceStoreInterface);
                 $this->builtDebounce = $store;
             } else {
-                $store = $this->block('debounce')['store'] ?? 'cache';
-                $store = \is_string($store) && $store !== '' ? $store : 'cache';
-                $this->builtDebounce = match ($store) {
-                    'memory' => new MemoryDebounceStore(),
-                    'none' => new NullDebounceStore(),
-                    default => new YiiCacheDebounceStore(Instance::ensure($store, CacheInterface::class), $this->config()->debounceKeyPrefix),
-                };
+                $config = $this->config();
+                $this->builtDebounce = DebounceStoreFactory::fromConfig(
+                    $config,
+                    static fn(string $id): DebounceStoreInterface => new YiiCacheDebounceStore(Instance::ensure($id, CacheInterface::class), $config->debounceKeyPrefix),
+                    self::DEFAULT_DEBOUNCE_STORE,
+                );
             }
         }
 
@@ -297,9 +293,12 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     public function collector(): CollectorInterface
     {
-        return $this->collector ??= new Collector($this->logger(), $this->config()->collectorDetectLeaks, $this->config()->logUrls);
+        return $this->collector ??= Collector::fromConfig($this->config(), $this->logger());
     }
 
+    /**
+     * The `dispatcher` property, else `dispatch`: none, sync, or `queue` through yii2-queue with the `queue` block.
+     */
     public function dispatcher(): DispatcherInterface
     {
         if ($this->builtDispatcher === null) {
@@ -309,12 +308,14 @@ final class IndexNowComponent extends Component implements BootstrapInterface
                 $this->builtDispatcher = $dispatcher;
             } else {
                 $config = $this->config();
-                $queue = $this->block('queue');
-                $this->builtDispatcher = match (true) {
-                    !$config->enabled || $config->dispatch === 'none' => new NullDispatcher(),
-                    $config->dispatch === 'queue' => new QueueDispatcher(fn(): Queue => $this->queue(), $config, $this->logger(), self::intOf($queue['ttr'] ?? null, 300), self::intOf($queue['delay'] ?? null, 0), \is_int($queue['priority'] ?? null) || \is_string($queue['priority'] ?? null) ? $queue['priority'] : null),
-                    default => new SyncDispatcher($this->submitter(), $this->logger(), $config->logUrls),
-                };
+                $this->builtDispatcher = DispatcherFactory::fromConfig($config, $this->submitter(), $this->logger(), function () use ($config): DispatcherInterface {
+                    $queue = $this->block('queue');
+                    $ttr = $queue['ttr'] ?? null;
+                    $delay = $queue['delay'] ?? null;
+                    $priority = $queue['priority'] ?? null;
+
+                    return new QueueDispatcher(fn(): Queue => $this->queue(), $config, $this->logger(), is_numeric($ttr) ? (int) $ttr : 300, is_numeric($delay) ? (int) $delay : 0, \is_int($priority) || \is_string($priority) ? $priority : null);
+                });
             }
         }
 
@@ -333,6 +334,10 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         return $this->routeResolver;
     }
 
+    /**
+     * The `urlResolver` property, else the attribute resolver over the router bridge; `#[IndexNow(resolver: ...)]`
+     * ids are application components, DI definitions or classes `Yii::createObject()` can build.
+     */
     public function guardedResolver(): GuardedUrlResolver
     {
         if ($this->guardedResolver === null) {
@@ -340,8 +345,19 @@ final class IndexNowComponent extends Component implements BootstrapInterface
                 $resolver = Instance::ensure($this->urlResolver, UrlResolverInterface::class);
                 \assert($resolver instanceof UrlResolverInterface);
             } else {
-                $config = $this->config();
-                $resolver = new AttributeUrlResolver($this->rules(), $this->routeResolver(), new ContainerResolverLocator(), $this->logger(), $config->resolverMaxViaDepth, $config->resolverMaxViaFanout, $config->localeHosts);
+                $locator = new ArrayResolverLocator([], locate: static function (string $id): ?object {
+                    try {
+                        $resolver = App::component($id);
+                        if ($resolver === null && (Yii::$container->has($id) || class_exists($id))) {
+                            $resolver = Yii::$container->get($id);
+                        }
+                    } catch (Throwable $e) {
+                        throw new ConfigurationException(\sprintf('IndexNow URL resolver "%s" cannot be built: %s', $id, $e->getMessage()), 0, $e);
+                    }
+
+                    return \is_object($resolver) ? $resolver : null;
+                }, hint: 'a component, a container definition');
+                $resolver = AttributeUrlResolver::fromConfig($this->config(), $this->rules(), $this->routeResolver(), $locator, $this->logger());
             }
             $this->guardedResolver = new GuardedUrlResolver($resolver, $this->rules(), $this->logger());
         }
@@ -384,7 +400,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     public function keyFileResponder(): KeyFileResponder
     {
-        return $this->keyFileResponder ??= new KeyFileResponder($this->keys(), $this->config()->serveKeyFile);
+        return $this->keyFileResponder ??= KeyFileResponder::fromConfig($this->config(), $this->keys());
     }
 
     public function checker(): CheckerInterface
@@ -392,7 +408,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         if ($this->checker === null) {
             $checks = [
                 new QueueCheck($this->options, $this->config()->dispatch, $this->queueExists()),
-                new CacheCheck($this->options),
+                new DebounceStoreCheck($this->config(), (new CacheProbe())(...), self::DEFAULT_DEBOUNCE_STORE),
                 new UrlManagerCheck($this->options),
                 new ActiveRecordCheck($this->activeRecordEnabled(), $this->modelClasses()),
                 new SitemapSpoolCheck($this->sitemapConfig()),
@@ -452,22 +468,19 @@ final class IndexNowComponent extends Component implements BootstrapInterface
      */
     public function submitRecords(iterable $records, Event $event = Event::Updated): array
     {
-        return $this->kit()->submit($this->urlsForAll($records, $event));
+        return $this->kit()->submitAll($records, $event);
     }
 
     /**
+     * URLs the rules yield for many records, de-duplicated across the set.
+     *
      * @param iterable<object> $records
      *
      * @return list<string>
      */
     public function urlsForAll(iterable $records, Event $event = Event::Updated): array
     {
-        $resolved = [];
-        foreach ($records as $record) {
-            $resolved = [...$resolved, ...$this->kit()->explain($record, $event)];
-        }
-
-        return ResolvedUrl::urls($resolved);
+        return $this->kit()->urlsForAll($records, $event);
     }
 
     /**
@@ -580,9 +593,8 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     private function registerKeyFileRule(\yii\web\Application $app): void
     {
         $keyFile = $this->block('key_file');
-        $enabled = \is_bool($this->options['serve_key_file'] ?? null) ? $this->options['serve_key_file'] : (bool) ($keyFile['enabled'] ?? true);
         $urlManager = $app->getUrlManager();
-        if (!$enabled || !$urlManager instanceof UrlManager || !$urlManager->enablePrettyUrl) {
+        if (!$this->config()->serveKeyFile || !$urlManager instanceof UrlManager || !$urlManager->enablePrettyUrl) {
             return;
         }
         $pattern = $keyFile['pattern'] ?? null;
@@ -591,10 +603,5 @@ final class IndexNowComponent extends Component implements BootstrapInterface
             'route' => self::KEY_FILE_ROUTE,
             'suffix' => '',
         ]], false);
-    }
-
-    private static function intOf(mixed $value, int $default): int
-    {
-        return is_numeric($value) ? (int) $value : $default;
     }
 }

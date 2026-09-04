@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\ActiveRecord;
 
+use IndexNowKit\Console\ClassNameResolver;
 use IndexNowKit\Console\SubjectLoaderInterface;
 use IndexNowKit\Event;
 use IndexNowKit\Exception\InvalidArgumentException;
@@ -16,33 +17,22 @@ use yii\db\ActiveRecord;
  */
 final class ActiveRecordLoader implements SubjectLoaderInterface
 {
+    private readonly ClassNameResolver $classes;
+
     /**
      * @param list<string> $namespaces namespaces a short class name is looked up in
      */
-    public function __construct(private readonly array $namespaces = ['app\\models']) {}
+    public function __construct(array $namespaces = ['app\\models'])
+    {
+        $this->classes = new ClassNameResolver($namespaces, static fn(string $class): bool => is_subclass_of($class, ActiveRecord::class), 'an ActiveRecord class');
+    }
 
     /**
      * @return class-string<ActiveRecord>
      */
     public function resolveClass(string $class): string
     {
-        $candidate = ltrim($class, '\\');
-        if (!class_exists($candidate)) {
-            foreach ($this->namespaces as $namespace) {
-                if (class_exists($namespace . '\\' . $candidate)) {
-                    $candidate = $namespace . '\\' . $candidate;
-                    break;
-                }
-            }
-        }
-        if (!class_exists($candidate)) {
-            throw new InvalidArgumentException(\sprintf('Class "%s" not found.', $class));
-        }
-        if (!is_subclass_of($candidate, ActiveRecord::class)) {
-            throw new InvalidArgumentException(\sprintf('"%s" is not an ActiveRecord class.', $candidate));
-        }
-
-        return $candidate;
+        return self::activeRecordClass($this->classes->resolve($class));
     }
 
     public function byIds(string $class, array $ids, Event $event): array

@@ -30,6 +30,10 @@ final class YiiLogger extends AbstractLogger
 
     public function __construct(private readonly Logger $logger, private readonly string $category = 'indexnow') {}
 
+    /**
+     * @param mixed        $level
+     * @param array<mixed> $context
+     */
     public function log($level, string|Stringable $message, array $context = []): void
     {
         $text = self::interpolate((string) $message, $context);

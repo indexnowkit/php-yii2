@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\Http;
 
-use IndexNowKit\Key\KeyFileResponder;
 use IndexNowKit\Yii2\App;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -35,12 +34,10 @@ final class KeyFileController extends Controller
         if ($body === null) {
             throw new NotFoundHttpException();
         }
-        $keyFile = $component->block('key_file');
-        $maxAge = is_numeric($keyFile['cache_max_age'] ?? null) ? (int) $keyFile['cache_max_age'] : KeyFileResponder::DEFAULT_MAX_AGE;
         $response = $app->getResponse();
         $response->format = Response::FORMAT_RAW;
         $response->content = $body;
-        foreach (KeyFileResponder::headers($maxAge, $component->config()->hosts !== []) as $name => $value) {
+        foreach ($component->config()->keyFileHeaders() as $name => $value) {
             $response->getHeaders()->set($name, $value);
         }
 

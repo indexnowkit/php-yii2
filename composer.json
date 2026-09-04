@@ -38,8 +38,8 @@
         "yiisoft/yii2-composer": "^2.0.10"
     },
     "require-dev": {
-        "phpstan/phpstan": "^2.1",
-        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpstan/phpstan": "^2.2.13",
+        "phpstan/phpstan-strict-rules": "^2.0.12",
         "phpunit/phpunit": "^11.5",
         "yidas/yii2-composer-bower-skip": "^2.0",
         "yiisoft/yii2-queue": "^2.3"

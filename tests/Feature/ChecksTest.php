@@ -6,9 +6,12 @@ namespace IndexNowKit\Yii2\Tests\Feature;
 
 use IndexNowKit\Check\CheckLevel;
 use IndexNowKit\Check\CheckReport;
-use IndexNowKit\Yii2\Check\CacheCheck;
+use IndexNowKit\Check\DebounceStoreCheck;
+use IndexNowKit\Config;
+use IndexNowKit\Yii2\Check\CacheProbe;
 use IndexNowKit\Yii2\Check\QueueCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
+use IndexNowKit\Yii2\IndexNowComponent;
 use IndexNowKit\Yii2\Tests\Support\Fixtures;
 use IndexNowKit\Yii2\Tests\Yii2TestCase;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -24,14 +27,19 @@ final class ChecksTest extends Yii2TestCase
         self::assertStringContainsString('yiisoft/yii2-queue', $this->messages($check)[0]);
     }
 
-    #[TestDox('debounce: off is ok, memory is a warning, an existing cache component is ok, a missing one an error')]
-    public function testCacheCheck(): void
+    #[TestDox('debounce: off is ok, memory is a warning, an existing cache component is ok (the default when unset), a missing one an error (core DebounceStoreCheck + the Yii cache probe)')]
+    public function testDebounceStoreCheck(): void
     {
-        self::assertSame([CheckLevel::Ok], $this->levels(new CacheCheck(['debounce' => ['per_url' => 0]])));
-        self::assertSame([CheckLevel::Warning], $this->levels(new CacheCheck(['debounce' => ['per_url' => 600, 'store' => 'memory']])));
-        self::assertSame([CheckLevel::Ok], $this->levels(new CacheCheck(['debounce' => ['per_url' => 600, 'store' => 'cache']])));
-        $check = new CacheCheck(['debounce' => ['per_url' => 600, 'store' => 'missing']]);
-        self::assertSame([CheckLevel::Error], $this->levels($check));
+        $check = static fn(array $debounce): DebounceStoreCheck => new DebounceStoreCheck(Config::fromArray(['key' => Fixtures::KEY, 'debounce' => $debounce]), (new CacheProbe())(...), IndexNowComponent::DEFAULT_DEBOUNCE_STORE);
+
+        self::assertSame([CheckLevel::Ok], $this->levels($check(['per_url' => 0])));
+        self::assertSame([CheckLevel::Warning], $this->levels($check(['per_url' => 600, 'store' => 'memory'])));
+        self::assertSame([CheckLevel::Ok], $this->levels($check(['per_url' => 600, 'store' => 'cache'])));
+        self::assertSame([CheckLevel::Ok], $this->levels($check(['per_url' => 600])), 'unset = the cache component');
+        self::assertStringContainsString('cache component "cache"', $this->messages($check(['per_url' => 600]))[0]);
+        $failing = $check(['per_url' => 600, 'store' => 'missing']);
+        self::assertSame([CheckLevel::Error], $this->levels($failing));
+        self::assertStringContainsString('component "missing" does not exist', $this->messages($failing)[0]);
     }
 
     #[TestDox('key file: the URL rule is reported in the web application; disabled serving is ok')]
