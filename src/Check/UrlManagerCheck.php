@@ -6,6 +6,8 @@ namespace IndexNowKit\Yii2\Check;
 
 use IndexNowKit\Check\CheckInterface;
 use IndexNowKit\Check\CheckReport;
+use IndexNowKit\Config;
+use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Yii2\App;
 use IndexNowKit\Yii2\IndexNowComponent;
 use yii\web\UrlManager;
@@ -23,8 +25,13 @@ final class UrlManagerCheck implements CheckInterface
 
     public function check(CheckReport $report): void
     {
-        $keyFile = \is_array($this->options['key_file'] ?? null) ? $this->options['key_file'] : [];
-        $enabled = \is_bool($this->options['serve_key_file'] ?? null) ? $this->options['serve_key_file'] : (bool) ($keyFile['enabled'] ?? true);
+        try {
+            $enabled = Config::serveKeyFileFrom($this->options);
+        } catch (ConfigurationException $e) {
+            $report->error(\sprintf('key file: %s', $e->getMessage()));
+
+            return;
+        }
         if (!$enabled) {
             $report->ok('key file: not served by this application (key_file.enabled: false); serve /<key>.txt yourself');
 
