@@ -41,7 +41,7 @@ final class ConfigFactoryTest extends TestCase
     public function testQueueWithoutComponent(): void
     {
         $this->expectException(ConfigurationException::class);
-        $this->expectExceptionMessageMatches('/queue component does not exist/');
+        $this->expectExceptionMessageMatches('/queue component "queue" is not configured/');
         ConfigFactory::build(['key' => self::KEY, 'base_url' => 'https://www.example.com', 'dispatch' => 'queue'], 'prod', false);
     }
 
