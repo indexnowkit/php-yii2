@@ -51,6 +51,18 @@ final class ConfigFactoryTest extends TestCase
         ConfigFactory::build(['key' => self::KEY, 'dispatch' => 'later'], 'prod', false);
     }
 
+    #[TestDox('a typo inside an owned block (key_file.enabld, sitemap.spol) is warned about like any unknown key')]
+    public function testTypoInsideOwnedBlockIsWarned(): void
+    {
+        $logger = new ArrayLogger();
+        ConfigFactory::create(['key' => self::KEY, 'key_file' => ['enabld' => false], 'sitemap' => ['spol' => 'memory', 'spool' => 'memory']], 'prod', false, $logger);
+
+        $warnings = implode("\n", $logger->messages('warning'));
+        self::assertStringContainsString('key_file.enabld', $warnings);
+        self::assertStringContainsString('sitemap.spol', $warnings);
+        self::assertStringNotContainsString('sitemap.spool', $warnings);
+    }
+
     public function testCreateDisablesOnError(): void
     {
         $logger = new ArrayLogger();

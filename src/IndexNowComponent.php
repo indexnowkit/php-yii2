@@ -12,7 +12,6 @@ use IndexNowKit\Attribute\RuleRegistry;
 use IndexNowKit\Check\Checker;
 use IndexNowKit\Check\CheckerInterface;
 use IndexNowKit\Check\CheckInterface;
-use IndexNowKit\Check\SitemapSpoolCheck;
 use IndexNowKit\Client;
 use IndexNowKit\Collector\Collector;
 use IndexNowKit\Collector\CollectorInterface;
@@ -33,9 +32,10 @@ use IndexNowKit\Key\KeyFileResponder;
 use IndexNowKit\Key\KeyProviderInterface;
 use IndexNowKit\Key\StaticKeyProvider;
 use IndexNowKit\Result;
+use IndexNowKit\Sitemap\Check\SitemapSpoolCheck;
+use IndexNowKit\Sitemap\SitemapConfig;
 use IndexNowKit\Sitemap\SitemapReader;
 use IndexNowKit\Sitemap\SitemapSourceInterface;
-use IndexNowKit\Sitemap\SpoolMode;
 use IndexNowKit\Submitter;
 use IndexNowKit\SubmitterInterface;
 use IndexNowKit\Throttle\ThrottleInterface;
@@ -137,6 +137,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     private ?GuardedUrlResolver $guardedResolver = null;
     private ?IndexNowObserver $observer = null;
     private ?VerifyingStaging $staging = null;
+    private ?SitemapConfig $sitemapConfig = null;
     private ?SitemapSourceInterface $sitemap = null;
     private ?CheckerInterface $checker = null;
     private ?KeyFileResponder $keyFileResponder = null;
@@ -215,7 +216,6 @@ final class IndexNowComponent extends Component implements BootstrapInterface
                 resolver: $this->guardedResolver(),
                 logger: $this->logger(),
                 transport: $this->transport(),
-                sitemap: ($this->block('sitemap')['enabled'] ?? true) === false ? null : $this->sitemapSource(),
             );
         }
 
@@ -359,26 +359,27 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         return $this->observer ??= new IndexNowObserver($this->kit(), $this->staging(), $this->logger(), $this->activeRecordEnabled());
     }
 
-    public function sitemapSource(): SitemapSourceInterface
+    /**
+     * The validated `sitemap` block; a broken value disables the sitemap command with a critical log line, like the
+     * core options.
+     */
+    public function sitemapConfig(): SitemapConfig
     {
-        if ($this->sitemap === null) {
-            $sitemap = $this->block('sitemap');
-            $spool = SpoolMode::tryFrom(\is_string($sitemap['spool'] ?? null) ? $sitemap['spool'] : 'auto') ?? SpoolMode::Auto;
-            $dir = $sitemap['spool_dir'] ?? null;
-            $this->sitemap = new SitemapReader(
-                $this->transport(),
-                self::intOf($sitemap['max_depth'] ?? null, 3),
-                $this->logger(),
-                self::intOf($sitemap['max_sitemaps'] ?? null, SitemapReader::MAX_SITEMAPS),
-                self::intOf($sitemap['max_bytes'] ?? null, SitemapReader::MAX_XML_BYTES),
-                (bool) ($sitemap['allow_foreign_hosts'] ?? false),
-                $spool,
-                \is_string($dir) && $dir !== '' ? $dir : null,
-                self::intOf($sitemap['fetch_retries'] ?? null, 2),
-            );
+        if ($this->sitemapConfig === null) {
+            try {
+                $this->sitemapConfig = SitemapConfig::fromArray($this->block('sitemap'));
+            } catch (ConfigurationException $e) {
+                $this->logger()->critical('indexnow: invalid sitemap configuration, the sitemap command is disabled until it is fixed: {error}', ['error' => $e->getMessage(), 'exception' => $e]);
+                $this->sitemapConfig = SitemapConfig::disabled();
+            }
         }
 
-        return $this->sitemap;
+        return $this->sitemapConfig;
+    }
+
+    public function sitemapSource(): SitemapSourceInterface
+    {
+        return $this->sitemap ??= SitemapReader::fromConfig($this->sitemapConfig(), $this->transport(), $this->logger());
     }
 
     public function keyFileResponder(): KeyFileResponder
@@ -394,7 +395,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
                 new CacheCheck($this->options),
                 new UrlManagerCheck($this->options),
                 new ActiveRecordCheck($this->activeRecordEnabled(), $this->modelClasses()),
-                new SitemapSpoolCheck($this->block('sitemap')),
+                new SitemapSpoolCheck($this->sitemapConfig()),
             ];
             foreach ($this->checks as $check) {
                 $instance = Instance::ensure($check, CheckInterface::class);

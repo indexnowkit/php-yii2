@@ -10,8 +10,6 @@ use IndexNowKit\Console\ExplainRunner;
 use IndexNowKit\Console\KeyGenerateRunner;
 use IndexNowKit\Console\ResultFormatterInterface;
 use IndexNowKit\Console\ResultRenderer;
-use IndexNowKit\Console\SitemapOptions;
-use IndexNowKit\Console\SitemapRunner;
 use IndexNowKit\Console\SubjectLoaderInterface;
 use IndexNowKit\Console\SubmitRunner;
 use IndexNowKit\Console\SubmitSubjectsOptions;
@@ -19,6 +17,8 @@ use IndexNowKit\Console\SubmitSubjectsRunner;
 use IndexNowKit\Console\SubmitterFactory;
 use IndexNowKit\Console\SubmitterFactoryInterface;
 use IndexNowKit\Console\Vocabulary;
+use IndexNowKit\Sitemap\Console\SitemapOptions;
+use IndexNowKit\Sitemap\Console\SitemapRunner;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordLoader;
 use IndexNowKit\Yii2\App;
 use IndexNowKit\Yii2\Config\ConfigFactory;
@@ -163,13 +163,13 @@ final class IndexNowController extends Controller
     public function actionSitemap(?string $sitemap = null): int
     {
         $component = $this->component();
-        if (($component->block('sitemap')['enabled'] ?? true) === false) {
+        $config = $component->sitemapConfig();
+        if (!$config->enabled) {
             $this->io()->error('sitemap.enabled is false.');
 
             return ExitCode::INVALID;
         }
-        $default = $component->block('sitemap')['url'] ?? null;
-        $runner = new SitemapRunner($component->kit(), $component->sitemapSource(), $this->submitterFactory(), \is_string($default) && $default !== '' ? $default : null, $this->formatter(), $this->words());
+        $runner = new SitemapRunner($component->kit(), $component->sitemapSource(), $this->submitterFactory(), $config->url, $this->formatter(), sitemapUrlOption: 'sitemap.url');
 
         return $runner->run($this->io(), new SitemapOptions($sitemap, $this->changedSince, $this->allowForeignHosts, $this->force, $this->dryRun, $this->json));
     }
@@ -207,7 +207,17 @@ final class IndexNowController extends Controller
 
     private function words(): Vocabulary
     {
-        return new Vocabulary('record', 'records', 'php yii', 'indexnow/submit-record', 'the indexnow component options and INDEXNOW_* env vars', 'once the component is bootstrapped and pretty URLs are on', 'sitemap.url', 'indexnow/check', 'indexnow/submit', 'indexnow/explain');
+        return new Vocabulary(
+            subject: 'record',
+            subjects: 'records',
+            cli: 'php yii',
+            submitSubjects: 'indexnow/submit-record',
+            configLocation: 'the indexnow component options and INDEXNOW_* env vars',
+            keyFileServedBy: 'once the component is bootstrapped and pretty URLs are on',
+            check: 'indexnow/check',
+            submit: 'indexnow/submit',
+            explain: 'indexnow/explain',
+        );
     }
 
     private function loader(): SubjectLoaderInterface

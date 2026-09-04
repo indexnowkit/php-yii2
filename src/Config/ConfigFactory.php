@@ -6,6 +6,7 @@ namespace IndexNowKit\Yii2\Config;
 
 use IndexNowKit\Config;
 use IndexNowKit\Exception\ConfigurationException;
+use IndexNowKit\Sitemap\SitemapConfig;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -16,13 +17,15 @@ use Psr\Log\NullLogger;
  */
 final class ConfigFactory
 {
-    /** Blocks this package owns; everything else goes to the core. */
+    /**
+     * Keys this package owns on top of Config::OPTIONS and SitemapConfig::OPTIONS, dotted-path form only: a bare
+     * block name in this list would stop unknownOptions() from checking the keys inside the block.
+     */
     public const YII_OPTIONS = [
-        'queue', 'queue.component', 'queue.ttr', 'queue.delay', 'queue.priority',
-        'key_file', 'key_file.enabled', 'key_file.pattern', 'key_file.cache_max_age',
-        'router', 'router.languages', 'router.language_parameter', 'router.set_app_language',
-        'active_record', 'active_record.enabled', 'active_record.models',
-        'sitemap', 'sitemap.enabled', 'sitemap.url', 'sitemap.max_depth', 'sitemap.max_sitemaps', 'sitemap.max_bytes', 'sitemap.allow_foreign_hosts', 'sitemap.spool', 'sitemap.spool_dir', 'sitemap.fetch_retries',
+        'queue.component', 'queue.ttr', 'queue.delay', 'queue.priority',
+        'key_file.enabled', 'key_file.pattern', 'key_file.cache_max_age',
+        'router.languages', 'router.language_parameter', 'router.set_app_language',
+        'active_record.enabled', 'active_record.models',
         'logging.category', 'debounce.store', 'http.client',
     ];
 
@@ -36,7 +39,7 @@ final class ConfigFactory
     {
         $logger ??= new NullLogger();
         try {
-            $unknown = Config::unknownOptions($options, self::YII_OPTIONS);
+            $unknown = Config::unknownOptions($options, [...self::YII_OPTIONS, ...SitemapConfig::OPTIONS]);
             if ($unknown !== []) {
                 $logger->warning('indexnow: unknown option(s) in the indexnow component: {options}', ['options' => implode(', ', $unknown)]);
             }
