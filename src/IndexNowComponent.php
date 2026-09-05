@@ -24,6 +24,7 @@ use IndexNowKit\Key\KeyProviderInterface;
 use IndexNowKit\Result;
 use IndexNowKit\Sitemap\SitemapConfig;
 use IndexNowKit\Sitemap\SitemapSourceInterface;
+use IndexNowKit\Submission\SubmissionStoreInterface;
 use IndexNowKit\SubmitterInterface;
 use IndexNowKit\Throttle\ThrottleInterface;
 use IndexNowKit\Transaction\VerifyingStaging;
@@ -93,6 +94,9 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     /** @var LoggerInterface|array<string, mixed>|string|null PSR-3 logger; default: Yii's logger under `logging.category` */
     public mixed $logger = null;
+
+    /** @var SubmissionStoreInterface|array<string, mixed>|string|null where the submitter records every Result (indexnowkit/history, or your own); default: nowhere */
+    public mixed $submissionStore = null;
 
     /** @var list<CheckInterface|array<string, mixed>|string> extra checks for `php yii indexnow/check` */
     public array $checks = [];
@@ -238,6 +242,12 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     public function failureCache(): ?Psr16
     {
         return $this->services()->failureCache();
+    }
+
+    /** The `submissionStore` property resolved, null when none is configured (`Submission\NullSubmissionStore` behaviour). */
+    public function submissionStore(): ?SubmissionStoreInterface
+    {
+        return $this->services()->submissionStore();
     }
 
     public function collector(): CollectorInterface

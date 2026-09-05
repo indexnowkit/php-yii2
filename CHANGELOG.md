@@ -17,6 +17,9 @@ contain breaking changes, listed under "Changed".
 - The 403 escalation of `Client` counts in the cache component behind `debounce.store` (core 0.8) through the new
   `Cache\Psr16Cache` (a `yii\caching\CacheInterface` as PSR-16): one `critical` line per streak for every worker;
   `IndexNowComponent::failureCache()` returns it (null with `memory`/`none` or a custom `debounceStore`).
+- Component property `submissionStore` (instance, class, configuration array or component id of a
+  `Submission\SubmissionStoreInterface`; default: nothing is recorded): the store the submitter and the command
+  submitters record every `Result` in (core 0.8); `IndexNowComponent::submissionStore()` returns it.
 
 ## [0.7.0] — 2026-09-06
 

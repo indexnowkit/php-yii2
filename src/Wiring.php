@@ -13,6 +13,7 @@ use IndexNowKit\Debounce\DebounceStoreInterface;
 use IndexNowKit\Dispatch\DispatcherInterface;
 use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Http\TransportInterface;
+use IndexNowKit\Submission\SubmissionStoreInterface;
 use IndexNowKit\Url\ArrayResolverLocator;
 use IndexNowKit\Url\RouteUrlResolverInterface;
 use IndexNowKit\Url\UrlResolverInterface;
@@ -63,6 +64,9 @@ final class Wiring
         if ($component->debounceStore === null && !\in_array($store, [DebounceStoreFactory::MEMORY, DebounceStoreFactory::NONE], true)) {
             // The 403 counter shares the cache component behind `debounce.store`; memory/none leave it in the process.
             $builder->failureCache(static fn(): Psr16 => new Psr16Cache(Instance::ensure($store, CacheInterface::class)));
+        }
+        if ($component->submissionStore !== null) {
+            $builder->submissionStore(static fn(): SubmissionStoreInterface => References::ensure(References::reference($component->submissionStore), SubmissionStoreInterface::class));
         }
         if ($component->dispatcher !== null) {
             $builder->dispatcher(static fn(): DispatcherInterface => References::ensure(References::reference($component->dispatcher), DispatcherInterface::class));
