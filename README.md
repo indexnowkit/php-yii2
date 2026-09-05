@@ -12,8 +12,9 @@ One attribute on the model, one component, done.
 
 ## Who gets notified
 
-**Yandex, Bing (and DuckDuckGo via Bing), Naver, Seznam, Yep** — every engine that implements the
-[IndexNow](https://www.indexnow.org) protocol. One request to the shared endpoint reaches all of them.
+**Yandex, Bing (and DuckDuckGo via Bing), Naver, Seznam, Yep, Internet Archive, Amazon** — every engine in the
+[IndexNow](https://www.indexnow.org) [registry](https://www.indexnow.org/searchengines.json). One request to the shared
+endpoint reaches all of them; name engines explicitly only to reach a single one.
 
 **Google: no.** Google does not support IndexNow; this package will not pretend otherwise.
 
