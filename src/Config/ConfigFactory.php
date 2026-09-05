@@ -7,6 +7,7 @@ namespace IndexNowKit\Yii2\Config;
 use IndexNowKit\Adapter\ConfigFactory as CoreConfigFactory;
 use IndexNowKit\Config;
 use IndexNowKit\Exception\ConfigurationException;
+use IndexNowKit\Yii2\History\HistoryServices;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
 use IndexNowKit\Yii2\Verify\VerifyServices;
 use Psr\Log\LoggerInterface;
@@ -46,16 +47,18 @@ final class ConfigFactory
      * @param bool|null            $sitemapInstalled null = detect ({@see SitemapServices::package()}); the component
      *                                               passes its `sitemapInstalled` property, tests pass false
      * @param bool|null            $verifyInstalled  the same for `indexnowkit/verify` ({@see VerifyServices::package()})
+     * @param bool|null            $historyInstalled the same for `indexnowkit/history` ({@see HistoryServices::package()})
      */
-    public static function factory(array $options, bool $queueExists, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null): CoreConfigFactory
+    public static function factory(array $options, bool $queueExists, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null, ?bool $historyInstalled = null): CoreConfigFactory
     {
         $queue = \is_array($options['queue'] ?? null) ? $options['queue'] : [];
         $component = \is_string($queue['component'] ?? null) && $queue['component'] !== '' ? $queue['component'] : 'queue';
         $sitemap = $sitemapInstalled ?? SitemapServices::package()->installed();
         $verify = $verifyInstalled ?? VerifyServices::package()->installed();
+        $history = $historyInstalled ?? HistoryServices::package()->installed();
 
         return new CoreConfigFactory(
-            ownedOptions: [...self::YII_OPTIONS, ...$sitemap ? SitemapServices::options() : [], ...$verify ? VerifyServices::options() : []],
+            ownedOptions: [...self::YII_OPTIONS, ...$sitemap ? SitemapServices::options() : [], ...$verify ? VerifyServices::options() : [], ...$history ? HistoryServices::options() : []],
             dispatchModes: self::DISPATCH_MODES,
             autoDispatch: static fn(): string => $queueExists ? 'queue' : 'sync',
             needBaseUrl: ['queue'],
@@ -64,7 +67,7 @@ final class ConfigFactory
                 ? \sprintf('"dispatch" is "queue" but the queue component "%s" is not configured (yiisoft/yii2-queue, option queue.component).', $component)
                 : null,
             checkCommand: 'php yii indexnow/check',
-            ignoreBlocks: [...$sitemap ? [] : ['sitemap'], ...$verify ? [] : ['verify']],
+            ignoreBlocks: [...$sitemap ? [] : ['sitemap'], ...$verify ? [] : ['verify'], ...$history ? [] : ['history']],
         );
     }
 
@@ -73,9 +76,9 @@ final class ConfigFactory
      *
      * @param array<string, mixed> $options the component's `options`
      */
-    public static function create(array $options, string $environment, bool $queueExists, ?LoggerInterface $logger = null, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null): Config
+    public static function create(array $options, string $environment, bool $queueExists, ?LoggerInterface $logger = null, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null, ?bool $historyInstalled = null): Config
     {
-        return self::factory($options, $queueExists, $sitemapInstalled, $verifyInstalled)->load($options, $environment, $logger ?? new NullLogger());
+        return self::factory($options, $queueExists, $sitemapInstalled, $verifyInstalled, $historyInstalled)->load($options, $environment, $logger ?? new NullLogger());
     }
 
     /**
@@ -85,8 +88,8 @@ final class ConfigFactory
      *
      * @throws ConfigurationException
      */
-    public static function build(array $options, string $environment, bool $queueExists, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null): Config
+    public static function build(array $options, string $environment, bool $queueExists, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null, ?bool $historyInstalled = null): Config
     {
-        return self::factory($options, $queueExists, $sitemapInstalled, $verifyInstalled)->build($options, $environment);
+        return self::factory($options, $queueExists, $sitemapInstalled, $verifyInstalled, $historyInstalled)->build($options, $environment);
     }
 }

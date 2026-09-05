@@ -20,12 +20,26 @@ contain breaking changes, listed under "Changed".
 - **`indexnow/check --sample=a,b` / `--sample-class=Class,Class:id`** (comma-separated; `Check\SampleOptions`,
   `Check\VerifySampleCheck`, `Check\RecordSampler` over the controller's loader). A URL with a comma cannot be given.
 - **`indexnow/config --json`** prints the `verify` section when the package is installed.
-- `Config\ConfigFactory::factory()/create()/build()` take an appended `?bool $verifyInstalled = null`.
+- **`indexnowkit/history` wiring** (spec 17 §6.2). The `history` block of the component options (`store`, `limit`,
+  `key_prefix`, `pdo.dsn`, `pdo.service`, `pdo.table`, `retention_days`); with the package and `history.store:
+  psr16|pdo` the graph's submission store is the package's (`History\HistoryServices`, `Wiring`): `Psr16SubmissionStore`
+  over the cache component of `debounce.store` (the `cache` component with `memory`/`none`) through `Cache\Psr16Cache`,
+  or `PdoSubmissionStore` over the PDO of the `db` component named by `pdo.service` / a PDO built from `pdo.dsn` —
+  never both — so sync flushes, yii2-queue jobs, the commands and the verify decorator record into it; the
+  `submissionStore` property still wins. The table is not created (see the package's `docs/migrations.md`).
+  Component: `historyInstalled` (predicate override), `historyPackage()`, `historyInstalled()`, `historyConfig()`,
+  `historyEnabled()`. Commands **`indexnow/history`** (`--host`, `--status`, `--url`, `--since`, `--limit`, `--json`,
+  `--purge[=days]`; `Console\HistoryAction`) and **`indexnow/status`** (`--json` per the package's `status.schema.json`;
+  the queue component and its class as the adapter facts); without the package both print the install line and
+  exit 1 (their options are still accepted) and `historyConfig()` throws. `check` lines: `history.installed`
+  (without the package), `history.store`, `history.records`. `indexnow/config --json` prints the `history` section.
+- `Config\ConfigFactory::factory()/create()/build()` take an appended `?bool $verifyInstalled = null` and
+  `?bool $historyInstalled = null`.
 
 ### Changed
 
 - Requires `indexnowkit/core ^0.9`, `indexnowkit/console ^0.3` and (dev/suggest) `indexnowkit/sitemap ^0.5`,
-  `indexnowkit/verify ^0.1`.
+  `indexnowkit/verify ^0.1`, `indexnowkit/history ^0.1`.
 - `IndexNowController` submits `--force` / `--dry-run` through `IndexNowComponent::submitterFactory()` (decorated
   when verify is on) instead of the graph's plain factory; the `submitters` property still overrides it.
 

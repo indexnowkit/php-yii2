@@ -61,6 +61,7 @@ The full semantics of every core key, and the same table for the other adapters,
 | `active_record.models` | `[]` | ActiveRecord classes hooked through class-level events (no behavior needed) |
 | `sitemap.*` | | needs `indexnowkit/sitemap` (`composer require indexnowkit/sitemap`), else the block is ignored and `indexnow/check` says so: `enabled`, `url`, `max_depth`, `max_sitemaps`, `max_bytes`, `allow_foreign_hosts`, `spool` (auto\|disk\|memory), `spool_dir`, `fetch_retries` |
 | `logging.category` | `indexnow` | category of the lines written to `Yii::getLogger()`; route it in `log.targets` |
+| `history.*` | | needs `indexnowkit/history` (`composer require indexnowkit/history`), else the block is ignored and `indexnow/check` says so: `store` (null\|psr16\|pdo; null = nothing kept), `limit` (500, the psr16 ring buffer), `key_prefix` (null = `debounce.key_prefix`), `pdo.dsn` (a PDO DSN; not together with `pdo.service`), `pdo.service` (the `db` component holding the table, default `db`), `pdo.table` (`indexnow_submissions`; the package's `docs/migrations.md` creates it), `retention_days` (90, what `indexnow/history --purge` removes beyond) |
 
 ## Component properties
 
@@ -68,7 +69,9 @@ Besides `options`, the component accepts replacements as instances, config array
 (`Instance::ensure`): `transport` (`TransportInterface`), `debounceStore`, `dispatcher`, `urlResolver` (replaces the
 attribute resolver entirely), `logger` (PSR-3), `checks` (extra `CheckInterface`s for `indexnow/check`), `environment`,
 `sitemapInstalled` (`null` detects `indexnowkit/sitemap`; `false` runs as if the package were absent — tests, or a
-deployment that must not read sitemaps).
+deployment that must not read sitemaps), `verifyInstalled` and `historyInstalled` (the same for `indexnowkit/verify`
+and `indexnowkit/history`), `verifyTransport` (the transport of the pre-flight GETs), `submissionStore` (your own
+`SubmissionStoreInterface`; it wins over `history.store`).
 
 ## Console controller properties
 

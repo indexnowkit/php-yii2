@@ -18,6 +18,7 @@ use IndexNowKit\Config;
 use IndexNowKit\Debounce\DebounceStoreInterface;
 use IndexNowKit\Dispatch\DispatcherInterface;
 use IndexNowKit\Event;
+use IndexNowKit\History\HistoryConfig;
 use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\IndexNowKit;
 use IndexNowKit\Key\KeyFileResponder;
@@ -42,6 +43,7 @@ use IndexNowKit\Yii2\Check\SampleOptions;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\Console\IndexNowController;
 use IndexNowKit\Yii2\Event\ResultDispatcher;
+use IndexNowKit\Yii2\History\HistoryServices;
 use IndexNowKit\Yii2\Http\KeyFileController;
 use IndexNowKit\Yii2\Log\YiiLogger;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
@@ -73,7 +75,8 @@ use yii\web\UrlManager;
  * `logger`, `checks`), given as an instance, a class name or a component id (`Instance::ensure`). The sitemap
  * pieces come from `Sitemap\SitemapServices` when the optional `indexnowkit/sitemap` is installed
  * (`Adapter\OptionalPackage`, {@see sitemapPackage()}); without it `indexnow/sitemap` prints one sentence and
- * `indexnow/check` one line.
+ * `indexnow/check` one line. The same for `Verify\VerifyServices` ({@see verifyPackage()}) and `History\HistoryServices`
+ * ({@see historyPackage()}: the submission store of `history.store`, `indexnow/history`, `indexnow/status`).
  */
 final class IndexNowComponent extends Component implements BootstrapInterface
 {
@@ -106,7 +109,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     /** @var LoggerInterface|array<string, mixed>|string|null PSR-3 logger; default: Yii's logger under `logging.category` */
     public mixed $logger = null;
 
-    /** @var SubmissionStoreInterface|array<string, mixed>|string|null where the submitter records every Result (indexnowkit/history, or your own); default: nowhere */
+    /** @var SubmissionStoreInterface|array<string, mixed>|string|null where the submitter records every Result (your own store; it wins over `history.store` of indexnowkit/history); default: the store of `history.store`, else nowhere */
     public mixed $submissionStore = null;
 
     /** @var list<CheckInterface|array<string, mixed>|string> extra checks for `php yii indexnow/check` */
@@ -124,6 +127,9 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     /** The same for `indexnowkit/verify`. */
     public ?bool $verifyInstalled = null;
 
+    /** The same for `indexnowkit/history`. */
+    public ?bool $historyInstalled = null;
+
     /** @var TransportInterface|array<string, mixed>|string|null replacement transport of the pre-flight GETs of indexnowkit/verify (tests); default: `verify.timeout`, `verify.user_agent` over `http.client` */
     public mixed $verifyTransport = null;
 
@@ -140,6 +146,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     private ?SitemapConfig $sitemapConfig = null;
     private ?SitemapSourceInterface $sitemap = null;
     private ?VerifyConfig $verifyConfig = null;
+    private ?HistoryConfig $historyConfig = null;
     private ?TransportInterface $verifyTransportInstance = null;
     private ?RobotsCache $robots = null;
     private ?SubmitterFactoryInterface $submitterFactory = null;
@@ -187,7 +194,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     public function config(): Config
     {
-        return $this->config ??= ConfigFactory::create($this->options, $this->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $this->queueExists(), $this->logger(), $this->sitemapInstalled(), $this->verifyInstalled());
+        return $this->config ??= ConfigFactory::create($this->options, $this->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $this->queueExists(), $this->logger(), $this->sitemapInstalled(), $this->verifyInstalled(), $this->historyInstalled());
     }
 
     public function logger(): LoggerInterface
@@ -270,7 +277,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         return $this->services()->failureCache();
     }
 
-    /** The `submissionStore` property resolved, null when none is configured (`Submission\NullSubmissionStore` behaviour). */
+    /** The `submissionStore` property resolved, else the store of `history.store` (indexnowkit/history), null when neither is configured (`Submission\NullSubmissionStore` behaviour). */
     public function submissionStore(): ?SubmissionStoreInterface
     {
         return $this->services()->submissionStore();
@@ -448,6 +455,39 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         if (!$this->verifyInstalled()) {
             throw new LogicException($this->verifyPackage()->notInstalledMessage());
         }
+    }
+
+    /** The optional `indexnowkit/history` behind its one predicate: the `historyInstalled` property, else detection. */
+    public function historyPackage(): OptionalPackage
+    {
+        return HistoryServices::package($this->historyInstalled);
+    }
+
+    /** Whether the optional `indexnowkit/history` is installed ({@see historyPackage()}). */
+    public function historyInstalled(): bool
+    {
+        return $this->historyPackage()->installed();
+    }
+
+    /**
+     * The validated `history` block; a broken value switches the history off with a critical log line. Needs the
+     * optional `indexnowkit/history`: without it a LogicException with the install line.
+     *
+     * @throws LogicException when indexnowkit/history is not installed
+     */
+    public function historyConfig(): HistoryConfig
+    {
+        if (!$this->historyInstalled()) {
+            throw new LogicException($this->historyPackage()->notInstalledMessage());
+        }
+
+        return $this->historyConfig ??= HistoryServices::config($this->block('history'), $this->logger());
+    }
+
+    /** Whether the graph records into a store of indexnowkit/history: the package is installed, `history.store` is set and no `submissionStore` property overrides it. */
+    public function historyEnabled(): bool
+    {
+        return $this->submissionStore === null && $this->historyInstalled() && $this->historyConfig()->store !== null;
     }
 
     public function keyFileResponder(): KeyFileResponder

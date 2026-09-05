@@ -159,7 +159,9 @@ Accessor'ы читают атрибуты и отношения AR (`category.sl
 | `indexnow/submit <urls...>` | `--force` · `--dry-run` · `--json` |
 | `indexnow/submit-record <class> [ids...]` | `--event=` · `--limit=` · `--explain` · `--force` · `--dry-run` · `--json` |
 | `indexnow/explain <class> <id>` | `--event=` — правила, `when`, URL, ключ, дебаунс; ничего не отправляет |
-| `indexnow/sitemap [sitemap]` | `--changed-since="1 day"` · `--allow-foreign-hosts` · `--force` · `--dry-run` · `--json` |
+| `indexnow/sitemap [sitemap]` | `--changed-since="1 day"` · `--allow-foreign-hosts` · `--force` · `--dry-run` · `--json` · `--no-verify` |
+| `indexnow/history` | `--host=` · `--status=ok|failed|skipped|pending` · `--url=` · `--since=2h|3d|2026-09-01` · `--limit=` (по умолчанию 50) · `--json` · `--purge[=days]` |
+| `indexnow/status` | `--json` |
 | `indexnow/key-generate` | `--length` · `--alphanumeric` · `--write-env[=FILE]` · `--force` ротация |
 
 `<class>` — FQCN или короткое имя в `app\models`. Идентификаторы через пробел или запятую.
@@ -173,6 +175,33 @@ Accessor'ы читают атрибуты и отношения AR (`category.sl
 installed: composer require indexnowkit/sitemap` и завершается с кодом 1, `indexnow/check` печатает `sitemap: not
 installed (…)`, блок `sitemap` в опциях игнорируется, `sitemapConfig()` / `sitemapSource()` бросают `LogicException`
 с той же фразой. В логи ничего не пишется.
+
+### История
+
+`composer require indexnowkit/history   # опционально: что, когда и с каким ответом отправлено`
+
+```php
+'indexnow' => ['class' => IndexNowComponent::class, 'options' => [
+    // ...
+    'history' => [
+        'store' => 'pdo',                // null (по умолчанию, ничего не хранится) | psr16 (кэш-компонент дебаунса) | pdo
+        'pdo' => ['service' => 'db'],    // компонент db с таблицей — либо 'dsn' => 'sqlite:/var/data/indexnow.sqlite'
+    ],
+]],
+```
+
+Каждый `Result` сабмиттера — flush после ответа, задача yii2-queue, команды, URL, отсечённый `indexnowkit/verify` —
+записывается: нормализованные URL, хост, движок, статус, причина, HTTP-код, текст ошибки (никогда тело ответа или
+ключ). `php yii indexnow/history` показывает записи, новые первыми (`--host`, `--status`, `--url`, `--since`,
+`--json`); `indexnow/history --purge` удаляет старше `history.retention_days` (строка для cron);
+`php yii indexnow/status` печатает переключатели, режим доставки с компонентом очереди, стор дебаунса, счётчик 403 по
+хостам, последнюю успешную отправку и размер истории (`--json` для машин). Для `pdo` нужна таблица: миграция — в
+[docs/migrations.md](https://github.com/indexnowkit/php/blob/main/packages/history/docs/migrations.md) пакета
+(`Schema::sql()`); пока её нет, `indexnow/check` печатает ошибку `history.store`, а сабмиттер логирует сбой, не ломая
+flush. `psr16` — кольцевой буфер из `history.limit` записей для одного процесса и небольших сайтов. Свойство
+`submissionStore` компонента имеет приоритет. Без пакета `indexnow/history` и `indexnow/status` отвечают
+`indexnowkit/history is not installed: composer require indexnowkit/history` и завершаются с кодом 1, `indexnow/check`
+печатает `history: not installed (…)`, `historyConfig()` бросает `LogicException` с той же фразой.
 
 ## Конфигурация и документация
 
@@ -217,7 +246,7 @@ installed (…)`, блок `sitemap` в опциях игнорируется, `
 
 ## Заметки для AI-ассистентов
 
-- Composer-пакет `indexnowkit/yii2` (Yii 2.0.45+, поверх `indexnowkit/core`); команда `sitemap` требует `indexnowkit/sitemap`. Конфигурация: компонент приложения `indexnow` (массив `options`), `'bootstrap' => ['indexnow']`.
+- Composer-пакет `indexnowkit/yii2` (Yii 2.0.45+, поверх `indexnowkit/core`); команда `sitemap` требует `indexnowkit/sitemap`; предпроверка страниц — `indexnowkit/verify`; `indexnow/history` / `indexnow/status` — `indexnowkit/history` (`history.store: psr16|pdo`). Конфигурация: компонент приложения `indexnow` (массив `options`), `'bootstrap' => ['indexnow']`.
 - Минимальный полный сниппет (все `use` на месте):
 
 ```php

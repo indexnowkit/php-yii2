@@ -26,6 +26,7 @@ use IndexNowKit\Yii2\Check\QueueCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
 use IndexNowKit\Yii2\Check\VerifySampleCheck;
 use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
+use IndexNowKit\Yii2\History\HistoryServices;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
@@ -84,6 +85,9 @@ final class Wiring
         }
         if ($component->submissionStore !== null) {
             $builder->submissionStore(static fn(): SubmissionStoreInterface => References::ensure(References::reference($component->submissionStore), SubmissionStoreInterface::class));
+        } elseif ($component->historyEnabled()) {
+            // The store of `history.store` (indexnowkit/history): the submitter, the queue job, the commands and the verify decorator record into it.
+            $builder->submissionStore(static fn(Services $s): SubmissionStoreInterface => HistoryServices::store($component->historyConfig(), $s) ?? throw new InvalidConfigException('indexnow: history.store is set but no store was built.'));
         }
         if ($component->dispatcher !== null) {
             $builder->dispatcher(static fn(): DispatcherInterface => References::ensure(References::reference($component->dispatcher), DispatcherInterface::class));
@@ -116,6 +120,9 @@ final class Wiring
             ...$component->verifyInstalled()
                 ? VerifyServices::checks($component->verifyConfig(), $services, $component->verifyTransport(), $component->robots(), $component->samples)
                 : [new VerifySampleCheck($component->samples, null, $component->verifyPackage()->checkLine($component->block('verify')), $component->verifyPackage()->checkLevel($component->block('verify')))],
+            ...$component->historyInstalled()
+                ? HistoryServices::checks($component->historyConfig(), $services)
+                : [$component->historyPackage()->check($component->block('history'))],
         ];
         foreach ($component->checks as $check) {
             $checks[] = References::ensure(References::reference($check), CheckInterface::class);

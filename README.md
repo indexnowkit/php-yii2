@@ -166,7 +166,9 @@ Full model, typed parameters, inheritance and the semantics table:
 | `indexnow/submit <urls...>` | `--force` ignore debounce · `--dry-run` · `--json` |
 | `indexnow/submit-record <class> [ids...]` | `--event=` · `--limit=` · `--explain` · `--force` · `--dry-run` · `--json` |
 | `indexnow/explain <class> <id>` | `--event=` — rules, `when`, URLs, key, debounce; sends nothing |
-| `indexnow/sitemap [sitemap]` | `--changed-since="1 day"` · `--allow-foreign-hosts` · `--force` · `--dry-run` · `--json` |
+| `indexnow/sitemap [sitemap]` | `--changed-since="1 day"` · `--allow-foreign-hosts` · `--force` · `--dry-run` · `--json` · `--no-verify` |
+| `indexnow/history` | `--host=` · `--status=ok|failed|skipped|pending` · `--url=` · `--since=2h|3d|2026-09-01` · `--limit=` (default 50) · `--json` · `--purge[=days]` |
+| `indexnow/status` | `--json` |
 | `indexnow/key-generate` | `--length` · `--alphanumeric` · `--write-env[=FILE]` · `--force` rotate |
 
 `<class>` is an FQCN or a short name under `app\models`. Ids are space- or comma-separated.
@@ -180,6 +182,35 @@ Without the package everything else works unchanged: `indexnow/sitemap` says `in
 installed: composer require indexnowkit/sitemap` and exits 1, `indexnow/check` prints `sitemap: not installed (…)`,
 a `sitemap` block in the options is ignored, `sitemapConfig()` / `sitemapSource()` throw a `LogicException` with
 the same sentence. Nothing is logged about it.
+
+### History
+
+`composer require indexnowkit/history   # optional: what was submitted, when, with what answer`
+
+```php
+'indexnow' => ['class' => IndexNowComponent::class, 'options' => [
+    // ...
+    'history' => [
+        'store' => 'pdo',                // null (default, nothing kept) | psr16 (the debounce cache component) | pdo
+        'pdo' => ['service' => 'db'],    // the db component holding the table — or 'dsn' => 'sqlite:/var/data/indexnow.sqlite'
+    ],
+]],
+```
+
+Every `Result` the submitter produces — the flush after the response, the yii2-queue job, the commands, a URL skipped
+by `indexnowkit/verify` — is recorded: normalized URLs, host, engine, status, reason, HTTP code, the error message
+(never the response body or the key). `php yii indexnow/history` lists them newest first (`--host`, `--status`,
+`--url`, `--since`, `--json`); `indexnow/history --purge` removes what is older than `history.retention_days` (a cron
+line); `php yii indexnow/status` prints the switches, the dispatch mode with the queue component, the debounce store,
+the 403 counter of every host, the last successful submission and the history size (`--json` for machines). `pdo`
+needs the table: the migration is in the package's
+[docs/migrations.md](https://github.com/indexnowkit/php/blob/main/packages/history/docs/migrations.md)
+(`Schema::sql()`); until it exists `indexnow/check` prints a `history.store` error and the submitter logs the failure
+without breaking the flush. `psr16` is a ring buffer of `history.limit` records for one process and small sites. The
+`submissionStore` property of the component takes precedence over either. Without the package `indexnow/history` and
+`indexnow/status` say `indexnowkit/history is not installed: composer require indexnowkit/history` and exit 1,
+`indexnow/check` prints `history: not installed (…)`, `historyConfig()` throws a `LogicException` with the same
+sentence.
 
 ## Configuration and docs
 
@@ -225,7 +256,7 @@ break is listed under "Changed" in [CHANGELOG.md](CHANGELOG.md). Yii 2.0.45+, PH
 
 ## Notes for AI assistants
 
-- Composer package `indexnowkit/yii2` (Yii 2.0.45+, on `indexnowkit/core`); the `sitemap` command needs `indexnowkit/sitemap`. Configuration: the `indexnow` application component (`options` array), `'bootstrap' => ['indexnow']`.
+- Composer package `indexnowkit/yii2` (Yii 2.0.45+, on `indexnowkit/core`); the `sitemap` command needs `indexnowkit/sitemap`; pre-flight checks need `indexnowkit/verify`; `indexnow/history` / `indexnow/status` need `indexnowkit/history` (`history.store: psr16|pdo`). Configuration: the `indexnow` application component (`options` array), `'bootstrap' => ['indexnow']`.
 - Minimal complete snippet (every `use` included):
 
 ```php

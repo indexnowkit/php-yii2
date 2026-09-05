@@ -40,6 +40,7 @@
         "yiisoft/yii2-composer": "^2.0.10"
     },
     "require-dev": {
+        "indexnowkit/history": "^0.1",
         "indexnowkit/sitemap": "^0.5",
         "indexnowkit/testing": "^0.2",
         "indexnowkit/verify": "^0.1",
@@ -53,6 +54,7 @@
     "suggest": {
         "indexnowkit/sitemap": "The indexnow/sitemap command (^0.5)",
         "indexnowkit/verify": "Pre-flight GET of every URL before submission — noindex, robots.txt, canonical, redirects (^0.1; verify.enabled: true)",
+        "indexnowkit/history": "Submission history in a cache component or a database table, the indexnow/history and indexnow/status commands (^0.1; history.store: psr16|pdo)",
         "yiisoft/yii2-queue": "dispatch: queue — SubmitUrlsJob with retries in a worker",
         "symfony/http-client": "PSR-18 client for the submissions (with nyholm/psr7); any PSR-18 client works",
         "nyholm/psr7": "PSR-17 factories for the PSR-18 client"

@@ -47,6 +47,8 @@ use yii\di\Instance;
  *   php yii indexnow/submit-record Post 1 2 --explain
  *   php yii indexnow/explain Post 1
  *   php yii indexnow/sitemap --changed-since="1 day"     (needs indexnowkit/sitemap)
+ *   php yii indexnow/history --since=2h --json            (needs indexnowkit/history)
+ *   php yii indexnow/status --json                        (needs indexnowkit/history)
  *   php yii indexnow/key-generate --write-env
  */
 final class IndexNowController extends Controller
@@ -91,6 +93,14 @@ final class IndexNowController extends Controller
     public bool $allowForeignHosts = false;
     /** @var bool skip the pre-flight GETs of indexnowkit/verify for this sitemap run */
     public bool $noVerify = false;
+    /** @var string|null `indexnow/history`: records with this status only (ok | pending | failed | skipped) */
+    public ?string $status = null;
+    /** @var string|null `indexnow/history`: records naming this URL (exact match after normalization) */
+    public ?string $url = null;
+    /** @var string|null `indexnow/history`: not older than an ISO date or a relative interval (2h, 3d, 1w) */
+    public ?string $since = null;
+    /** @var mixed `indexnow/history`: `--purge` removes the records older than history.retention_days, `--purge=30` older than 30 days */
+    public mixed $purge = null;
     public int|string $length = 32;
     public bool $alphanumeric = false;
     public mixed $writeEnv = null;
@@ -108,11 +118,13 @@ final class IndexNowController extends Controller
      * so a cron that passes them still gets the install line rather than "Unknown option".
      */
     private const SITEMAP_OPTIONS_WITHOUT_PACKAGE = ['changedSince', 'allowForeignHosts', 'force', 'dryRun', 'json', 'noVerify'];
+    /** The same for `history` and `status` while indexnowkit/history is not installed. */
+    private const HISTORY_OPTIONS_WITHOUT_PACKAGE = ['history' => ['host', 'status', 'url', 'since', 'limit', 'json', 'purge'], 'status' => ['json']];
 
     public function options($actionID): array
     {
         $definition = $this->definitions()[$actionID] ?? null;
-        $options = $definition?->yiiOptions() ?? ($actionID === 'sitemap' ? self::SITEMAP_OPTIONS_WITHOUT_PACKAGE : []);
+        $options = $definition?->yiiOptions() ?? ($actionID === 'sitemap' ? self::SITEMAP_OPTIONS_WITHOUT_PACKAGE : (self::HISTORY_OPTIONS_WITHOUT_PACKAGE[$actionID] ?? []));
 
         return array_merge(parent::options($actionID), ['v', 'vv', 'vvv'], $options);
     }
@@ -195,6 +207,10 @@ final class IndexNowController extends Controller
         if ($this->component()->sitemapInstalled()) {
             $definitions['sitemap'] = SitemapAction::definition();
         }
+        if ($this->component()->historyInstalled()) {
+            $definitions['history'] = HistoryAction::definition();
+            $definitions['status'] = HistoryAction::statusDefinition();
+        }
 
         return $definitions;
     }
@@ -208,7 +224,7 @@ final class IndexNowController extends Controller
         $component->samples->sampler = (new RecordSampler($this->loader(), $component->kit()))(...);
         $runner = new CheckRunner($component->checker(), $this->words());
 
-        return $runner->run($this->io(), fn(): mixed => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists(), $component->sitemapInstalled(), $component->verifyInstalled()), $this->live, array_values($this->host), $this->probeUrl, $this->json, $this->strict);
+        return $runner->run($this->io(), fn(): mixed => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists(), $component->sitemapInstalled(), $component->verifyInstalled(), $component->historyInstalled()), $this->live, array_values($this->host), $this->probeUrl, $this->json, $this->strict);
     }
 
     /** Print the effective IndexNow configuration: defaults and environment applied, keys masked. */
@@ -216,9 +232,12 @@ final class IndexNowController extends Controller
     {
         $component = $this->component();
 
-        $packages = $component->verifyInstalled() ? ['verify' => $component->verifyConfig()->toArray()] : [];
+        $packages = [
+            ...$component->verifyInstalled() ? ['verify' => $component->verifyConfig()->toArray()] : [],
+            ...$component->historyInstalled() ? ['history' => $component->historyConfig()->toArray()] : [],
+        ];
 
-        return (new ConfigRunner($this->words()))->run($this->io(), fn(): \IndexNowKit\Config => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists(), $component->sitemapInstalled(), $component->verifyInstalled()), $component->options, $this->json, $packages);
+        return (new ConfigRunner($this->words()))->run($this->io(), fn(): \IndexNowKit\Config => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists(), $component->sitemapInstalled(), $component->verifyInstalled(), $component->historyInstalled()), $component->options, $this->json, $packages);
     }
 
     /**
@@ -276,6 +295,51 @@ final class IndexNowController extends Controller
         }
 
         return SitemapAction::run($component, $this->io(), $this->submitterFactory(), $this->formatter(), $sitemap, $this->changedSince, $this->allowForeignHosts, $this->force, $this->dryRun, $this->json, $this->noVerify);
+    }
+
+    /**
+     * List the recorded IndexNow submissions (what was sent, when, with what answer), newest first. Needs indexnowkit/history.
+     */
+    public function actionHistory(): int
+    {
+        $component = $this->component();
+        if (!$component->historyInstalled()) {
+            $this->io()->writeln('<error>' . $component->historyPackage()->notInstalledMessage() . '</error>'); // one line: a cron log greps it
+
+            return ExitCode::FAILURE;
+        }
+        $host = $this->host[0] ?? null; // `--host` is the array option of check; history takes one host
+
+        return HistoryAction::history(
+            $component,
+            $this->io(),
+            \is_string($host) && $host !== '' ? $host : null,
+            $this->status,
+            $this->url,
+            $this->since,
+            \in_array('limit', $this->passedOptions, true) ? $this->limit : 50,
+            $this->json,
+            match (true) {
+                $this->purge === null || $this->purge === false || $this->purge === '' => null,
+                \is_string($this->purge) && $this->purge !== '1' => $this->purge,
+                default => true,
+            },
+        );
+    }
+
+    /**
+     * Print the IndexNow status: switches, dispatch, debounce store, 403 counters per host, the last successful submission, history size. Needs indexnowkit/history.
+     */
+    public function actionStatus(): int
+    {
+        $component = $this->component();
+        if (!$component->historyInstalled()) {
+            $this->io()->writeln('<error>' . $component->historyPackage()->notInstalledMessage() . '</error>');
+
+            return ExitCode::FAILURE;
+        }
+
+        return HistoryAction::status($component, $this->io(), $this->json);
     }
 
     /**
