@@ -22,23 +22,23 @@ final class QueueCheck implements CheckInterface
     public function check(CheckReport $report): void
     {
         if ($this->dispatch !== 'queue') {
-            $report->ok(\sprintf('dispatch "%s": URLs are %s', $this->dispatch, $this->dispatch === 'none' ? 'collected but never sent (drain the collector yourself)' : 'sent synchronously after the response is sent (or when the command ends); 429/5xx are not retried'));
+            $report->ok(\sprintf('dispatch "%s": URLs are %s', $this->dispatch, $this->dispatch === 'none' ? 'collected but never sent (drain the collector yourself)' : 'sent synchronously after the response is sent (or when the command ends); 429/5xx are not retried'), 'queue.dispatch');
 
             return;
         }
         $queue = \is_array($this->options['queue'] ?? null) ? $this->options['queue'] : [];
         $id = \is_string($queue['component'] ?? null) && $queue['component'] !== '' ? $queue['component'] : 'queue';
         if (!$this->queueExists) {
-            $report->error(\sprintf('queue: component "%s" does not exist (needs yiisoft/yii2-queue); SubmitUrlsJob cannot be queued.', $id));
+            $report->error(\sprintf('queue: component "%s" does not exist (needs yiisoft/yii2-queue); SubmitUrlsJob cannot be queued.', $id), 'queue.component');
 
             return;
         }
         $component = App::component($id);
         if ($component instanceof SyncQueue) {
-            $report->warning(\sprintf('queue: component "%s" is the sync driver, SubmitUrlsJob runs inline and the delay of a 429/5xx re-push is ignored (attempts run back-to-back). Use a real driver in production.', $id));
+            $report->warning(\sprintf('queue: component "%s" is the sync driver, SubmitUrlsJob runs inline and the delay of a 429/5xx re-push is ignored (attempts run back-to-back). Use a real driver in production.', $id), 'queue.driver');
 
             return;
         }
-        $report->ok(\sprintf('queue: SubmitUrlsJob goes to component "%s" (%s); run a worker (php yii %s/listen) or nothing is sent', $id, get_debug_type($component), $id));
+        $report->ok(\sprintf('queue: SubmitUrlsJob goes to component "%s" (%s); run a worker (php yii %s/listen) or nothing is sent', $id, get_debug_type($component), $id), 'queue.driver');
     }
 }

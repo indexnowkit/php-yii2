@@ -20,10 +20,10 @@ final class ActiveRecordCheck implements CheckInterface
     public function check(CheckReport $report): void
     {
         if (!$this->enabled) {
-            $report->warning('active record: hooks are NOT active (active_record.enabled or enabled is false); use indexnow/submit or Yii::$app->indexnow->submit()');
+            $report->warning('active record: hooks are NOT active (active_record.enabled or enabled is false); use indexnow/submit or Yii::$app->indexnow->submit()', 'active_record.enabled');
 
             return;
         }
-        $report->ok(\sprintf('active record: records using IndexNowBehavior%s are submitted automatically after commit (changes inside a transaction are verified on COMMIT)', $this->models !== [] ? ' and ' . implode(', ', $this->models) : ''));
+        $report->ok(\sprintf('active record: records using IndexNowBehavior%s are submitted automatically after commit (changes inside a transaction are verified on COMMIT)', $this->models !== [] ? ' and ' . implode(', ', $this->models) : ''), 'active_record.enabled');
     }
 }

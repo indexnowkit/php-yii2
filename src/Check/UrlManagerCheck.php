@@ -28,12 +28,12 @@ final class UrlManagerCheck implements CheckInterface
         try {
             $enabled = Config::serveKeyFileFrom($this->options);
         } catch (ConfigurationException $e) {
-            $report->error(\sprintf('key file: %s', $e->getMessage()));
+            $report->error(\sprintf('key file: %s', $e->getMessage()), 'url_manager.key_file');
 
             return;
         }
         if (!$enabled) {
-            $report->ok('key file: not served by this application (key_file.enabled: false); serve /<key>.txt yourself');
+            $report->ok('key file: not served by this application (key_file.enabled: false); serve /<key>.txt yourself', 'url_manager.key_file');
 
             return;
         }
@@ -42,22 +42,22 @@ final class UrlManagerCheck implements CheckInterface
             return;
         }
         if (!$manager->enablePrettyUrl) {
-            $report->error('key file: urlManager.enablePrettyUrl is off, /<key>.txt cannot be routed. Enable pretty URLs (and the web server rewrite), or serve the key file as a static file and set key_file.enabled: false.');
+            $report->error('key file: urlManager.enablePrettyUrl is off, /<key>.txt cannot be routed. Enable pretty URLs (and the web server rewrite), or serve the key file as a static file and set key_file.enabled: false.', 'url_manager.pretty_url');
 
             return;
         }
         if (App::isConsole()) {
-            $report->ok('key file: served by the web application at /<key>.txt (pretty URL rule)');
+            $report->ok('key file: served by the web application at /<key>.txt (pretty URL rule)', 'url_manager.rule');
 
             return;
         }
         foreach ($manager->rules as $rule) {
             if ($rule instanceof UrlRule && $rule->route === IndexNowComponent::KEY_FILE_ROUTE) {
-                $report->ok(\sprintf('key file: served at /%s (route %s)', str_replace(['<key:[A-Za-z0-9-]{8,128}>', '<key>'], '<key>', (string) $rule->name), $rule->route));
+                $report->ok(\sprintf('key file: served at /%s (route %s)', str_replace(['<key:[A-Za-z0-9-]{8,128}>', '<key>'], '<key>', (string) $rule->name), $rule->route), 'url_manager.rule');
 
                 return;
             }
         }
-        $report->error('key file: the URL rule is missing; is the indexnow component listed in "bootstrap"?');
+        $report->error('key file: the URL rule is missing; is the indexnow component listed in "bootstrap"?', 'url_manager.rule');
     }
 }

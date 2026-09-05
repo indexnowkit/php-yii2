@@ -8,6 +8,7 @@ use IndexNowKit\Check\CheckLevel;
 use IndexNowKit\Check\CheckReport;
 use IndexNowKit\Check\DebounceStoreCheck;
 use IndexNowKit\Config;
+use IndexNowKit\Testing\Conformance\CheckOutputAssertions;
 use IndexNowKit\Yii2\Check\CacheProbe;
 use IndexNowKit\Yii2\Check\QueueCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
@@ -40,6 +41,14 @@ final class ChecksTest extends Yii2TestCase
         $failing = $check(['per_url' => 600, 'store' => 'missing']);
         self::assertSame([CheckLevel::Error], $this->levels($failing));
         self::assertStringContainsString('component "missing" does not exist', $this->messages($failing)[0]);
+    }
+
+    #[TestDox('every line of the whole check, adapter checks included, carries a code (the API of check --json)')]
+    public function testEveryCheckLineHasACode(): void
+    {
+        $report = $this->component()->checker()->run();
+
+        CheckOutputAssertions::assertEveryItemHasCode($report, 'queue.dispatch', DebounceStoreCheck::CODE, 'url_manager.rule', 'active_record.enabled', 'sitemap.spool', 'key_file.status');
     }
 
     #[TestDox('key file: the URL rule is reported in the web application; disabled serving is ok')]
