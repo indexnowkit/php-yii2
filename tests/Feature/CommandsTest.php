@@ -62,7 +62,7 @@ final class CommandsTest extends Yii2TestCase
         [$code] = $this->yii('indexnow/check', ['host' => 'example.de']);
 
         self::assertSame(0, $code);
-        self::assertCount(1, $this->transport->gets);
+        self::assertSame(['https://example.de/' . self::SECOND_KEY . '.txt', 'https://example.de/robots.txt'], $this->transport->gets, 'the key file and robots.txt of that host only');
     }
 
     #[TestDox('indexnow/key-generate prints a 32-char hex key; --alphanumeric --length change alphabet and length; --write-env writes and rotates')]
