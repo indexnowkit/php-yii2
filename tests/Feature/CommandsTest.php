@@ -54,6 +54,25 @@ final class CommandsTest extends Yii2TestCase
         CheckOutputAssertions::assertKeyFileHint($output, 403);
     }
 
+    #[TestDox('indexnow/config --json prints the effective configuration with masked keys and the Yii-only keys')]
+    public function testConfig(): void
+    {
+        [$code, $output] = $this->yii('indexnow/config', ['json' => true]);
+
+        self::assertSame(0, $code, $output);
+        $decoded = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        self::assertStringNotContainsString(self::KEY, $output);
+        self::assertSame(\IndexNowKit\Key\KeyValidator::mask(self::KEY), $decoded['config']['key']);
+        self::assertArrayHasKey('active_record', $decoded['adapter'], 'the Yii blocks are reported as given');
+        self::assertArrayNotHasKey('key', $decoded['adapter']);
+
+        [$code, $output] = $this->yii('indexnow/config');
+        self::assertSame(0, $code);
+        self::assertStringContainsString('debounce.per_url', $output);
+        self::assertStringNotContainsString(self::KEY, $output);
+    }
+
     #[TestDox('indexnow/check --host limits the key file check to one host')]
     public function testCheckOnlyHost(): void
     {

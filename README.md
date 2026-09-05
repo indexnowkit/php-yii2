@@ -238,7 +238,7 @@ use IndexNowKit\Yii2\ActiveRecord\IndexNowBehavior;
 final class Post extends ActiveRecord { public function behaviors(): array { return [IndexNowBehavior::class]; } }
 ```
 
-- Verify: `php yii indexnow/check` (exit 1 on any error), `php yii indexnow/explain 'app\\models\\Post' 1` (why a URL was or was not produced), `php yii indexnow/submit-record 'app\\models\\Post' 1 --dry-run`.
+- Verify: `php yii indexnow/check` (exit 1 on any error; `--strict` fails on warnings too, `--json` for machines), `php yii indexnow/config --json` (the effective configuration, keys masked: paste it into a bug report), `php yii indexnow/explain 'app\\models\\Post' 1` (why a URL was or was not produced), `php yii indexnow/submit-record 'app\\models\\Post' 1 --dry-run`.
 - Pitfalls:
   - `dispatch: auto` exists in Symfony (`auto` | `messenger` | `sync` | `none`) and Yii2 (`auto` | `queue` | `sync` | `none`), **not** in Laravel (`queue` | `sync` | `none`).
   - Locales: `router.locales` in Laravel, `router.languages` in Yii2, `framework.enabled_locales` in Symfony; `locales: 'all'` on a rule uses that list.

@@ -23,6 +23,8 @@ contain breaking changes, listed under "Changed".
 - Options block `normalizer` (`strip_tracking_params`, `tracking_params`, `trailing_slash`, `sort_query`): the canonical
   form of every URL (core 0.8), read through `Config::OPTIONS`. Tracking parameters are stripped by default.
 - `php yii indexnow/explain --json` and the `when` values in the text output (console 0.2).
+- `php yii indexnow/config` (`--json`): the effective configuration with masked keys plus the component's own option
+  blocks (console 0.2).
 
 ## [0.7.0] — 2026-09-06
 

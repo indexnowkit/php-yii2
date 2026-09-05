@@ -8,6 +8,7 @@ use IndexNowKit\Adapter\SubmitterFactory;
 use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Console\CheckRunner;
 use IndexNowKit\Console\CommandDefinition;
+use IndexNowKit\Console\ConfigRunner;
 use IndexNowKit\Console\Definitions;
 use IndexNowKit\Console\ExitCode;
 use IndexNowKit\Console\ExplainRunner;
@@ -40,6 +41,7 @@ use yii\di\Instance;
  * framework prints the same thing.
  *
  *   php yii indexnow/check --live --strict
+ *   php yii indexnow/config --json
  *   php yii indexnow/check --json --host=www.example.com,example.de
  *   php yii indexnow/submit /a https://www.example.com/b --dry-run
  *   php yii indexnow/submit-record Post 1 2 --explain
@@ -176,6 +178,7 @@ final class IndexNowController extends Controller
 
         $definitions = [
             'check' => Definitions::check(),
+            'config' => Definitions::config(),
             'submit' => Definitions::submit(),
             'submit-record' => Definitions::submitSubjects($words),
             'explain' => Definitions::explain($words),
@@ -195,6 +198,14 @@ final class IndexNowController extends Controller
         $runner = new CheckRunner($component->checker(), $this->words());
 
         return $runner->run($this->io(), fn(): mixed => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists()), $this->live, array_values($this->host), $this->probeUrl, $this->json, $this->strict);
+    }
+
+    /** Print the effective IndexNow configuration: defaults and environment applied, keys masked. */
+    public function actionConfig(): int
+    {
+        $component = $this->component();
+
+        return (new ConfigRunner($this->words()))->run($this->io(), fn(): \IndexNowKit\Config => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists()), $component->options, $this->json);
     }
 
     /**

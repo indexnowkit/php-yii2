@@ -230,7 +230,7 @@ use IndexNowKit\Yii2\ActiveRecord\IndexNowBehavior;
 final class Post extends ActiveRecord { public function behaviors(): array { return [IndexNowBehavior::class]; } }
 ```
 
-- Проверка: `php yii indexnow/check` (exit 1 при любой ошибке), `php yii indexnow/explain 'app\\models\\Post' 1` (почему URL был или не был получен), `php yii indexnow/submit-record 'app\\models\\Post' 1 --dry-run`.
+- Проверка: `php yii indexnow/check` (exit 1 при любой ошибке; `--strict` падает и на предупреждениях, `--json` для машин), `php yii indexnow/config --json` (эффективная конфигурация с маскированными ключами: вставьте её в баг-репорт), `php yii indexnow/explain 'app\\models\\Post' 1` (почему URL был или не был получен), `php yii indexnow/submit-record 'app\\models\\Post' 1 --dry-run`.
 - Ловушки:
   - `dispatch: auto` есть в Symfony (`auto` | `messenger` | `sync` | `none`) и Yii2 (`auto` | `queue` | `sync` | `none`), в Laravel **нет** (`queue` | `sync` | `none`).
   - Локали: `router.locales` в Laravel, `router.languages` в Yii2, `framework.enabled_locales` в Symfony; `locales: 'all'` у правила берёт этот список.
