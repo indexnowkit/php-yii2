@@ -26,7 +26,7 @@ final class SitemapAction
         return Definitions::sitemap();
     }
 
-    public static function run(IndexNowComponent $component, SymfonyStyle $io, SubmitterFactoryInterface $submitters, ResultFormatterInterface $formatter, ?string $sitemap, ?string $changedSince, bool $allowForeignHosts, bool $force, bool $dryRun, bool $json): int
+    public static function run(IndexNowComponent $component, SymfonyStyle $io, SubmitterFactoryInterface $submitters, ResultFormatterInterface $formatter, ?string $sitemap, ?string $changedSince, bool $allowForeignHosts, bool $force, bool $dryRun, bool $json, bool $noVerify = false): int
     {
         $config = $component->sitemapConfig();
         if (!$config->enabled) {
@@ -34,8 +34,8 @@ final class SitemapAction
 
             return ExitCode::INVALID;
         }
-        $runner = new SitemapRunner($component->kit(), $component->sitemapSource(), $submitters, $config->url, $formatter, sitemapUrlOption: 'sitemap.url');
+        $runner = new SitemapRunner($component->kit(), $component->sitemapSource(), $submitters, $config->url, $formatter, sitemapUrlOption: 'sitemap.url', unverifiedSubmitters: $component->unverifiedSubmitterFactory());
 
-        return $runner->run($io, new SitemapOptions($sitemap, $changedSince, $allowForeignHosts, $force, $dryRun, $json));
+        return $runner->run($io, new SitemapOptions($sitemap, $changedSince, $allowForeignHosts, $force, $dryRun, $json, $noVerify));
     }
 }

@@ -89,6 +89,8 @@ final class IndexNowController extends Controller
     public bool $explain = false;
     public ?string $changedSince = null;
     public bool $allowForeignHosts = false;
+    /** @var bool skip the pre-flight GETs of indexnowkit/verify for this sitemap run */
+    public bool $noVerify = false;
     public int|string $length = 32;
     public bool $alphanumeric = false;
     public mixed $writeEnv = null;
@@ -105,7 +107,7 @@ final class IndexNowController extends Controller
      * The options of `sitemap` while indexnowkit/sitemap is not installed: the names of `Sitemap\Console\Definitions::sitemap()`,
      * so a cron that passes them still gets the install line rather than "Unknown option".
      */
-    private const SITEMAP_OPTIONS_WITHOUT_PACKAGE = ['changedSince', 'allowForeignHosts', 'force', 'dryRun', 'json'];
+    private const SITEMAP_OPTIONS_WITHOUT_PACKAGE = ['changedSince', 'allowForeignHosts', 'force', 'dryRun', 'json', 'noVerify'];
 
     public function options($actionID): array
     {
@@ -273,7 +275,7 @@ final class IndexNowController extends Controller
             return ExitCode::FAILURE;
         }
 
-        return SitemapAction::run($component, $this->io(), $this->submitterFactory(), $this->formatter(), $sitemap, $this->changedSince, $this->allowForeignHosts, $this->force, $this->dryRun, $this->json);
+        return SitemapAction::run($component, $this->io(), $this->submitterFactory(), $this->formatter(), $sitemap, $this->changedSince, $this->allowForeignHosts, $this->force, $this->dryRun, $this->json, $this->noVerify);
     }
 
     /**
