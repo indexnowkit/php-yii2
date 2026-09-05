@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Tests\Feature;
 
 use IndexNowKit\Http\Response;
-use IndexNowKit\Testing\CheckOutputAssertions;
+use IndexNowKit\Testing\Conformance\CheckOutputAssertions;
 use IndexNowKit\Yii2\Console\IndexNowController;
 use IndexNowKit\Yii2\Tests\Yii2TestCase;
 use PHPUnit\Framework\Attributes\TestDox;

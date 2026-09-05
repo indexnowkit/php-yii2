@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\Tests\Feature;
 
-use IndexNowKit\Testing\KeyFileAssertions;
+use IndexNowKit\Testing\Conformance\KeyFileAssertions;
 use IndexNowKit\Yii2\Tests\Yii2TestCase;
 use PHPUnit\Framework\Attributes\TestDox;
 use yii\web\NotFoundHttpException;

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Tests\Unit;
 
 use IndexNowKit\Sitemap\SitemapConfig;
-use IndexNowKit\Testing\ReadmeAssertions;
+use IndexNowKit\Testing\Conformance\ReadmeAssertions;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use PHPUnit\Framework\TestCase;
 
