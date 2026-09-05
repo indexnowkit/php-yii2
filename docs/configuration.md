@@ -6,10 +6,39 @@ the blocks marked **Yii** are handled by this package. Verify with `php yii inde
 
 ## Core keys
 
-`enabled`, `key`, `previous_key`, `key_location`, `base_url`, `hosts`, `strict_hosts`, `environment` (default `YII_ENV`),
-`production_environments` (`['prod', 'production']`), `max_url_length`, `engines`, `engine_aliases`, `locale_hosts`,
-`dry_run`, `batch.max_urls`, `debounce.per_url` (600), `debounce.key_prefix`, `throttle.max_requests_per_minute`,
-`http.timeout`, `http.user_agent`, `retry.*`, `resolver.*`, `collector.*`, `logging.{max_urls,forbidden_escalation,max_body,levels}`.
+Values usually come from `getenv()` in your config file; nothing is read from the environment by the package itself.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | `true` | kill switch; `false` = nothing is sent, changes are logged at debug |
+| `key` | — | the IndexNow key, `[A-Za-z0-9-]{8,128}` (`php yii indexnow/key-generate`) |
+| `previous_key` | — | the key before a rotation: its file is still served, nothing is submitted under it |
+| `key_location` | — | full URL of the key file when it is not `https://<host>/<key>.txt` |
+| `base_url` | — | origin for URLs generated outside web requests (console, queue workers); required with `dispatch: queue` |
+| `hosts` | `[]` | `host => key` or `host => ['key', 'key_location', 'base_url', 'engines', 'previous_key']` |
+| `strict_hosts` | `false` | skip URLs of hosts outside `base_url` / `hosts` instead of sending them under the default key |
+| `environment` | `YII_ENV` (component property `environment` overrides) | feeds the non-production dry-run safety net and the `check` staging error |
+| `production_environments` | `['prod', 'production']` | environments where a missing key is an error, not dry-run |
+| `max_url_length` | `2048` | longer URLs are `invalid_url` |
+| `engines` | `['api']` | `api`, `yandex`, `bing`, `naver`, `seznam`, `yep`, `internetarchive`, `amazon`, an endpoint URL or an alias |
+| `engine_aliases` | `[]` | `alias => endpoint URL` |
+| `locale_hosts` | `[]` | `language => host` for rules with `locales` and no `host` |
+| `dispatch` | `auto` | `auto`, `queue`, `sync`, `none` (see below) |
+| `dry_run` | unset | log the request instead of sending it; unset outside production makes `check` fail when a key is configured |
+| `batch.max_urls` | `10000` | URLs per request (protocol ceiling, not a target) |
+| `debounce.per_url` | `600` | seconds a URL is not resubmitted; `0` = off |
+| `debounce.key_prefix` | `indexnowkit_` | cache key prefix of the shared window |
+| `throttle.max_requests_per_minute` | `60` | token bucket per process |
+| `http.timeout` | `10` | seconds |
+| `http.user_agent` | `null` | override the `indexnowkit-php/x.y.z` agent |
+| `retry.*` | `3 / 60 / 2.0 / 3600 / 5` | `max_attempts`, `base_delay`, `multiplier`, `max_delay`, `server_error_delay` of `SubmitUrlsJob` |
+| `resolver.max_via_depth` / `max_via_fanout` | `3` / `100` | limits of `via:` |
+| `collector.max_urls` / `detect_leaks` | `0` / `true` | early flush threshold; warn at shutdown about unflushed URLs |
+| `logging.max_urls` / `forbidden_escalation` / `max_body` / `levels` | `20` / `5` / `300` / `[]` | log line shaping; see the core operations guide |
+
+The full semantics of every core key, and the same table for the other adapters, are in the
+[core configuration reference](https://github.com/indexnowkit/php/blob/main/packages/core/docs/configuration.md)
+("One concept, three keys").
 
 ## Yii blocks
 

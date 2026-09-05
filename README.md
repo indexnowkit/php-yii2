@@ -176,8 +176,18 @@ the same sentence. Nothing is logged about it.
 
 Every option, its default and what it does: [docs/configuration.md](docs/configuration.md). Commit safety:
 [docs/commit-safety.md](docs/commit-safety.md). Replacing pieces, custom resolvers, checks:
-[docs/extending.md](docs/extending.md). Queue, retries, failures: [docs/queue.md](docs/queue.md). Testing your
-integration: [docs/testing.md](docs/testing.md).
+[docs/extending.md](docs/extending.md). Queue, retries, failures: [docs/queue.md](docs/queue.md). Several hosts, www and apex,
+languages: [docs/multi-domain.md](docs/multi-domain.md). Testing your integration: [docs/testing.md](docs/testing.md).
+
+## Operations
+
+- [Production checklist](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#production-checklist)
+  — key and base URL, `check` in the deploy pipeline, `strict_hosts`, a shared debounce store, a monitored queue,
+  staging that cannot submit, the three lines to alert on.
+- [Monitoring rules and the Sentry filter](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#monitoring-rules),
+  [deleted pages](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#deleted-pages-what-your-site-must-return),
+  [what not to submit](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#what-not-to-submit).
+- [Multi-domain: hosts, www and apex, languages](docs/multi-domain.md) · [queue](docs/queue.md) · [commit safety](docs/commit-safety.md) · [troubleshooting](docs/troubleshooting.md).
 
 ## Debugging
 

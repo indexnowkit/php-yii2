@@ -40,3 +40,40 @@ category at `debug` (`log.targets[].categories = ['indexnow']`, `levels = ['erro
 invalid (the log has the reason). `check` prints where documents are spooled; on a read-only filesystem set
 `sitemap.spool_dir` or `sitemap.spool: memory`. The reader belongs to
 [`indexnowkit/sitemap`](https://github.com/indexnowkit/php/tree/main/packages/sitemap).
+
+## Sent, but the engine answers
+
+| Answer | Meaning | Fix |
+|---|---|---|
+| 403 (`invalid_key`, job rejected permanently) | `https://<host>/<key>.txt` is not reachable or has another body | `indexnow/check`; a CDN may cache the old file (`key_file.cache_max_age`) |
+| 422 (`unprocessable`) | URLs of another host than `host`, or the key file on another host | one key per host (`hosts`), `strict_hosts: true`; console URLs need `base_url` on the right host |
+| 429 (`rate_limited`) | too many requests | the job re-pushes itself with `Retry-After`; lower `throttle.max_requests_per_minute` |
+| 202 (`pending`) | accepted, key verification pending | normal for a new key; `check --live` later answers 200 |
+
+The 403 counter that escalates to `critical` is per process: several workers each count their own five.
+
+## Duplicates, timing
+
+- The same URL is not resubmitted within `debounce.per_url` (600 s). `--force` bypasses it; `debounce.store: cache`
+  shares the window between requests and workers, `memory` does not.
+- Everything from one request leaves as one batch after the response (`Response::EVENT_AFTER_SEND`); a console
+  command flushes when it ends, a queue worker after every job.
+- A rolled-back transaction submits nothing; a change re-read on commit that the row does not show is dropped
+  ([commit-safety.md](commit-safety.md)).
+
+## Staging submitted its URLs
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Bing/Yandex report URLs of `staging.example.com`, or `failed` / `unprocessable` (422) for them in the log | the staging copy runs with the production key and no `dry_run`; its URLs were generated on its own host | outside production set `INDEXNOW_DRY_RUN=1` (or `INDEXNOW_ENABLED=0`); `check` fails on such a copy since core 0.6 |
+| the staging host serves the production key file | `key_file.enabled` is on everywhere | `key_file.enabled: false` outside production, so no engine can verify the key on that host |
+| the engines indexed staging pages | the staging host answered `200` for them and served the key | return `410` (or `noindex` + block in `robots.txt`) on staging, and rotate the key if it was exposed |
+| a preview environment must submit on purpose | — | say `dry_run: false` explicitly in that environment; `check` then warns instead of failing |
+
+## Duplicates with `memory` and several workers
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| the same URL is submitted by every worker within minutes | `debounce.store: memory` is per process; each web worker and queue worker keeps its own window | `debounce.store` = a shared cache; `check` warns about `memory` |
+| duplicates right after a cache outage | the store fails open: no deduplication while the cache is down | expected and bounded (one request per URL); watch the `debounce store unavailable` warning rate |
+| duplicates after a deploy | the shared cache was flushed, or `debounce.key_prefix` changed | harmless once; keep the prefix stable per application |

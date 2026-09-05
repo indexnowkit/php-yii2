@@ -169,6 +169,16 @@ installed (…)`, блок `sitemap` в опциях игнорируется, `
 Замена частей, свои резолверы и проверки: [docs/extending.md](docs/extending.md). Очередь, повторы, отказы:
 [docs/queue.md](docs/queue.md). Тесты интеграции: [docs/testing.md](docs/testing.md).
 
+## Эксплуатация
+
+- [Чеклист production](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#production-checklist)
+  — ключ и base URL, `check` в деплое, `strict_hosts`, общий debounce store, очередь под мониторингом,
+  стейджинг, который не может отправлять, три строки для алертов.
+- [Правила мониторинга и фильтр Sentry](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#monitoring-rules),
+  [удалённые страницы](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#deleted-pages-what-your-site-must-return),
+  [что не отправлять](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#what-not-to-submit).
+- [Мультидомен: хосты, www и apex, языки](docs/multi-domain.md) · [очередь](docs/queue.md) · [commit safety](docs/commit-safety.md) · [troubleshooting](docs/troubleshooting.md).
+
 ## Отладка
 
 `php yii indexnow/check` проверяет опции, скачивает файл ключа и показывает, как подключена отправка (очередь,

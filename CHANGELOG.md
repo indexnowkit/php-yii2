@@ -12,6 +12,13 @@ contain breaking changes, listed under "Changed".
   and runs the record through the test application against the FakeTransport.
 - README: "Notes for AI assistants" (package, minimal complete snippet, verification, pitfalls across the adapters);
   `ReadmeAiNotesTest` keeps it consistent with the commands and configuration keys.
+- README "Operations": the production checklist first, then monitoring rules, deleted pages, what not to submit,
+  multi-domain, queue, commit safety and troubleshooting.
+- docs/configuration.md: the full core key table with defaults (parity with the Laravel adapter);
+  docs/testing.md: URLs without HTTP, transactions and verify-on-commit, queue, dry_run, conformance;
+  docs/multi-domain.md (new): hosts, rules on another host, languages, origin of generated URLs, www and apex,
+  hreflang; docs/troubleshooting.md: "Sent, but the engine answers" (403/422/429/202), "Duplicates, timing",
+  "Staging submitted its URLs", "Duplicates with `memory` and several workers".
 
 ## [0.6.0] — 2026-09-05
 
