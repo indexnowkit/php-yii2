@@ -12,7 +12,9 @@
         "seo",
         "yandex",
         "bing",
-        "indexing"
+        "indexing",
+        "psr-18",
+        "psr-3"
     ],
     "homepage": "https://github.com/indexnowkit/php-yii2",
     "authors": [
@@ -30,22 +32,23 @@
     "require": {
         "php": "^8.2",
         "ext-json": "*",
-        "indexnowkit/core": "^0.5.1",
+        "indexnowkit/core": "^0.6",
         "psr/log": "^1.1 || ^2.0 || ^3.0",
         "symfony/console": "^6.4 || ^7.0 || ^8.0",
         "yiisoft/yii2": "^2.0.45",
         "yiisoft/yii2-composer": "^2.0.10"
     },
     "require-dev": {
-        "indexnowkit/sitemap": "^0.1.1",
+        "indexnowkit/sitemap": "^0.2",
         "phpstan/phpstan": "^2.2.13",
         "phpstan/phpstan-strict-rules": "^2.0.12",
         "phpunit/phpunit": "^11.5",
+        "roave/security-advisories": "dev-latest",
         "yidas/yii2-composer-bower-skip": "^2.0",
         "yiisoft/yii2-queue": "^2.3"
     },
     "suggest": {
-        "indexnowkit/sitemap": "The indexnow/sitemap command (^0.1.1)",
+        "indexnowkit/sitemap": "The indexnow/sitemap command (^0.2)",
         "yiisoft/yii2-queue": "dispatch: queue — SubmitUrlsJob with retries in a worker",
         "symfony/http-client": "PSR-18 client for the submissions (with nyholm/psr7); any PSR-18 client works",
         "nyholm/psr7": "PSR-17 factories for the PSR-18 client"
@@ -69,12 +72,13 @@
     "config": {
         "sort-packages": true,
         "allow-plugins": {
-            "yiisoft/yii2-composer": true
+            "yiisoft/yii2-composer": true,
+            "php-http/discovery": false
         }
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "0.5.x-dev"
+            "dev-main": "0.6.x-dev"
         }
     }
 }

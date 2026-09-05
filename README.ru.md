@@ -4,8 +4,11 @@
 закоммичена. Один атрибут на модели, один компонент — готово.
 
 [![Packagist](https://img.shields.io/packagist/v/indexnowkit/yii2)](https://packagist.org/packages/indexnowkit/yii2)
+[![Downloads](https://img.shields.io/packagist/dt/indexnowkit/yii2)](https://packagist.org/packages/indexnowkit/yii2)
 [![CI](https://github.com/indexnowkit/php/actions/workflows/ci.yml/badge.svg)](https://github.com/indexnowkit/php/actions)
+![PHPStan](https://img.shields.io/badge/phpstan-level%209-4c1)
 ![PHP](https://img.shields.io/badge/php-%5E8.2-777bb4) ![Yii](https://img.shields.io/badge/yii-2.0.45%2B-1a73e8)
+[![License](https://img.shields.io/packagist/l/indexnowkit/yii2)](LICENSE)
 
 [English version](README.md) · Issues и pull requests: [github.com/indexnowkit/php](https://github.com/indexnowkit/php/issues) (репозитории `php-*` — read-only сплиты)
 

@@ -4,9 +4,12 @@ Tell search engines about new, changed and deleted pages the moment an ActiveRec
 One attribute on the model, one component, done.
 
 [![Packagist](https://img.shields.io/packagist/v/indexnowkit/yii2)](https://packagist.org/packages/indexnowkit/yii2)
+[![Downloads](https://img.shields.io/packagist/dt/indexnowkit/yii2)](https://packagist.org/packages/indexnowkit/yii2)
 [![CI](https://github.com/indexnowkit/php/actions/workflows/ci.yml/badge.svg)](https://github.com/indexnowkit/php/actions)
 [![Conformance](https://img.shields.io/badge/conformance-core%2022%2F22%20%C2%B7%20orm%2021%2F21%20%C2%B7%20http%206%2F6-brightgreen)](https://github.com/indexnowkit/spec)
+![PHPStan](https://img.shields.io/badge/phpstan-level%209-4c1)
 ![PHP](https://img.shields.io/badge/php-%5E8.2-777bb4) ![Yii](https://img.shields.io/badge/yii-2.0.45%2B-1a73e8)
+[![License](https://img.shields.io/packagist/l/indexnowkit/yii2)](LICENSE)
 
 [Русская версия](README.ru.md) · Issues and pull requests: [github.com/indexnowkit/php](https://github.com/indexnowkit/php/issues) (the `php-*` repositories are read-only splits)
 
