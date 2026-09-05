@@ -14,6 +14,9 @@ contain breaking changes, listed under "Changed".
   `--strict` (warnings fail the command: put it in the deploy pipeline) and `--host=a,b` (a list; console 0.2).
 - `php yii indexnow/key-generate --force` keeps the replaced key as `INDEXNOW_PREVIOUS_KEY` and refuses a second rotation
   while it is set; `--no-previous` and `--yes` decide (console 0.2).
+- The 403 escalation of `Client` counts in the cache component behind `debounce.store` (core 0.8) through the new
+  `Cache\Psr16Cache` (a `yii\caching\CacheInterface` as PSR-16): one `critical` line per streak for every worker;
+  `IndexNowComponent::failureCache()` returns it (null with `memory`/`none` or a custom `debounceStore`).
 
 ## [0.7.0] — 2026-09-06
 

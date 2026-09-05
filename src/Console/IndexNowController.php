@@ -327,7 +327,7 @@ final class IndexNowController extends Controller
         if ($this->submitters === null) {
             $component = $this->component();
 
-            return new SubmitterFactory($component->transport(), $component->keys(), $component->config(), $component->debounceStore(), $component->throttle(), $component->normalizer(), $component->logger());
+            return new SubmitterFactory($component->transport(), $component->keys(), $component->config(), $component->debounceStore(), $component->throttle(), $component->normalizer(), $component->logger(), failureCache: $component->failureCache());
         }
         $factory = Instance::ensure($this->submitters, SubmitterFactoryInterface::class);
         \assert($factory instanceof SubmitterFactoryInterface);

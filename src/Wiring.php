@@ -16,6 +16,7 @@ use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\Url\ArrayResolverLocator;
 use IndexNowKit\Url\RouteUrlResolverInterface;
 use IndexNowKit\Url\UrlResolverInterface;
+use IndexNowKit\Yii2\Cache\Psr16Cache;
 use IndexNowKit\Yii2\Check\ActiveRecordCheck;
 use IndexNowKit\Yii2\Check\CacheProbe;
 use IndexNowKit\Yii2\Check\QueueCheck;
@@ -24,6 +25,7 @@ use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
+use Psr\SimpleCache\CacheInterface as Psr16;
 use Throwable;
 use Yii;
 use yii\base\InvalidConfigException;
@@ -57,6 +59,11 @@ final class Wiring
                 static fn(string $id): DebounceStoreInterface => new YiiCacheDebounceStore(Instance::ensure($id, CacheInterface::class), $s->config->debounceKeyPrefix),
                 IndexNowComponent::DEFAULT_DEBOUNCE_STORE,
             ));
+        $store = $component->config()->debounceStore ?? IndexNowComponent::DEFAULT_DEBOUNCE_STORE;
+        if ($component->debounceStore === null && !\in_array($store, [DebounceStoreFactory::MEMORY, DebounceStoreFactory::NONE], true)) {
+            // The 403 counter shares the cache component behind `debounce.store`; memory/none leave it in the process.
+            $builder->failureCache(static fn(): Psr16 => new Psr16Cache(Instance::ensure($store, CacheInterface::class)));
+        }
         if ($component->dispatcher !== null) {
             $builder->dispatcher(static fn(): DispatcherInterface => References::ensure(References::reference($component->dispatcher), DispatcherInterface::class));
         }

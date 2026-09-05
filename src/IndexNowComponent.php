@@ -41,6 +41,7 @@ use IndexNowKit\Yii2\Log\YiiLogger;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
 use LogicException;
 use Psr\Log\LoggerInterface;
+use Psr\SimpleCache\CacheInterface as Psr16;
 use Yii;
 use yii\base\Application;
 use yii\base\BootstrapInterface;
@@ -231,6 +232,12 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     public function submitter(): SubmitterInterface
     {
         return $this->services()->submitter();
+    }
+
+    /** The PSR-16 view of the `debounce.store` cache component the 403 counter of the client lives in; null for memory/none. */
+    public function failureCache(): ?Psr16
+    {
+        return $this->services()->failureCache();
     }
 
     public function collector(): CollectorInterface
