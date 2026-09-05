@@ -71,6 +71,6 @@ instead of sent. Set `dry_run: false` for a test that must reach the transport.
 ## Conformance
 
 `tests/Conformance/` runs the core kits against this package (`CoreConformanceTestCase`: C01–C22 through the
-component; `OrmConformanceTestCase`: A01–A21 through `IndexNowBehavior`; `HttpConformanceTestCase`: H01–H06 through
-the key file action and the console). An application that replaces a piece (`urlResolver`, `dispatcher`) can extend
+component; `OrmConformanceTestCase`: A01–A21 through `IndexNowBehavior`; the H01–H06 assertions `KeyFileAssertions` /
+`CheckOutputAssertions` through the key file action and the console). An application that replaces a piece (`urlResolver`, `dispatcher`) can extend
 the same abstract cases to prove nothing regressed.
