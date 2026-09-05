@@ -39,7 +39,8 @@ use yii\di\Instance;
  * Registered by the component under the `indexnow` controller id; output goes through symfony/console so every
  * framework prints the same thing.
  *
- *   php yii indexnow/check --live
+ *   php yii indexnow/check --live --strict
+ *   php yii indexnow/check --json --host=www.example.com,example.de
  *   php yii indexnow/submit /a https://www.example.com/b --dry-run
  *   php yii indexnow/submit-record Post 1 2 --explain
  *   php yii indexnow/explain Post 1
@@ -73,7 +74,9 @@ final class IndexNowController extends Controller
     public bool $dryRun = false;
     public bool $json = false;
     public bool $live = false;
-    public ?string $host = null;
+    public bool $strict = false;
+    /** @var string[] `--host=a,b` (Yii splits the comma-separated value into the array) */
+    public array $host = [];
     public ?string $probeUrl = null;
     public string $event = 'updated';
     public int|string $limit = 1000;
@@ -189,7 +192,7 @@ final class IndexNowController extends Controller
         $component = $this->component();
         $runner = new CheckRunner($component->checker(), $this->words());
 
-        return $runner->run($this->io(), fn(): mixed => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists()), $this->live, $this->host, $this->probeUrl);
+        return $runner->run($this->io(), fn(): mixed => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists()), $this->live, array_values($this->host), $this->probeUrl, $this->json, $this->strict);
     }
 
     /**

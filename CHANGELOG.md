@@ -10,6 +10,8 @@ contain breaking changes, listed under "Changed".
 - The `indexnow/check` lines of the adapter carry stable codes (core 0.8, `check --json`): `queue.dispatch`,
   `queue.component`, `queue.driver`, `active_record.enabled`, `url_manager.key_file`, `url_manager.pretty_url`,
   `url_manager.rule`, plus the core's `debounce.store` and `sitemap.installed`. Listed in the core's `docs/check-codes.md`.
+- `php yii indexnow/check --json` (the report as JSON, schema `docs/check.schema.json` of `indexnowkit/console`),
+  `--strict` (warnings fail the command: put it in the deploy pipeline) and `--host=a,b` (a list; console 0.2).
 
 ## [0.7.0] — 2026-09-06
 

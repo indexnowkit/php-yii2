@@ -32,11 +32,11 @@ final class IndexNowControllerHelpTest extends Yii2TestCase
         }
 
         $check = $this->optionsHelp('check');
-        foreach (['live', 'host', 'probe-url'] as $name) {
+        foreach (['live', 'host', 'probe-url', 'json', 'strict'] as $name) {
             self::assertSame(Definitions::check()->option($name)->description, $check[$name]['comment']);
         }
         self::assertSame(' more output (-v)', $check['verbose']['comment'], 'verbose is not in the definitions: the property docblock applies');
-        self::assertSame('string', $check['host']['type']);
+        self::assertSame('string[]', $check['host']['type'], 'a repeatable option is an array property, --host=a,b');
 
         $submitRecord = $this->optionsHelp('submit-record');
         self::assertSame(1000, $submitRecord['limit']['default'], 'the default of the definition, as the int the property holds');
