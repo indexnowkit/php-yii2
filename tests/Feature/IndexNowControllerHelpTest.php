@@ -7,7 +7,6 @@ namespace IndexNowKit\Yii2\Tests\Feature;
 use IndexNowKit\Console\Definitions;
 use IndexNowKit\Sitemap\Console\Definitions as SitemapDefinitions;
 use IndexNowKit\Yii2\Console\IndexNowController;
-use IndexNowKit\Yii2\Sitemap\SitemapSupport;
 use IndexNowKit\Yii2\Tests\Yii2TestCase;
 use PHPUnit\Framework\Attributes\TestDox;
 
@@ -20,12 +19,6 @@ final class IndexNowControllerHelpTest extends Yii2TestCase
     protected function console(): bool
     {
         return true;
-    }
-
-    protected function tearDown(): void
-    {
-        SitemapSupport::$installed = null;
-        parent::tearDown();
     }
 
     #[TestDox('the option help of submit and check carries the descriptions and defaults of Console\Definitions')]
@@ -60,7 +53,7 @@ final class IndexNowControllerHelpTest extends Yii2TestCase
         $withPackage = $this->optionsHelp('sitemap');
         self::assertSame(SitemapDefinitions::sitemap()->option('changed-since')->description, $withPackage['changed-since']['comment']);
 
-        SitemapSupport::$installed = false;
+        $this->component()->sitemapInstalled = false;
         $withoutPackage = $this->optionsHelp('sitemap');
         self::assertSame(array_keys($withPackage), array_keys($withoutPackage), 'the same options are accepted');
         self::assertSame('', $withoutPackage['changed-since']['comment']);

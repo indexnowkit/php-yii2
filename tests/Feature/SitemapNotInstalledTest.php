@@ -7,32 +7,19 @@ namespace IndexNowKit\Yii2\Tests\Feature;
 use IndexNowKit\Console\ExitCode;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\Console\IndexNowController;
-use IndexNowKit\Yii2\Sitemap\SitemapSupport;
 use IndexNowKit\Yii2\Tests\Yii2TestCase;
 use LogicException;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
- * indexnowkit/sitemap not installed (the predicate forced to false): `indexnow/sitemap` prints the install line and
+ * indexnowkit/sitemap not installed (the component's `sitemapInstalled` property set to false): `indexnow/sitemap` prints the install line and
  * exits 1, `indexnow/check` prints one line about it, the `sitemap` block of the fixtures warns about nothing,
  * `sitemapConfig()` / `sitemapSource()` throw, everything else works and nothing is logged.
  */
 final class SitemapNotInstalledTest extends Yii2TestCase
 {
     private BufferedOutput $output;
-
-    protected function setUp(): void
-    {
-        SitemapSupport::$installed = false;
-        parent::setUp();
-    }
-
-    protected function tearDown(): void
-    {
-        SitemapSupport::$installed = null;
-        parent::tearDown();
-    }
 
     protected function console(): bool
     {
@@ -42,6 +29,11 @@ final class SitemapNotInstalledTest extends Yii2TestCase
     protected function optionOverrides(): array
     {
         return ['sitemap' => ['spol' => 'disk']]; // a typo the package would warn about: ignored without it
+    }
+
+    protected function componentOverrides(): array
+    {
+        return ['sitemapInstalled' => false];
     }
 
     protected function appOverrides(): array
@@ -57,7 +49,7 @@ final class SitemapNotInstalledTest extends Yii2TestCase
         [$code, $output] = $this->yii('indexnow/sitemap', ['https://www.example.com/sitemap.xml', 'dry-run' => true]);
 
         self::assertSame(ExitCode::FAILURE, $code);
-        self::assertStringContainsString(SitemapSupport::NOT_INSTALLED, $output);
+        self::assertStringContainsString('indexnowkit/sitemap is not installed: composer require indexnowkit/sitemap', $output);
         self::assertSame([], $this->transport->posts);
     }
 
@@ -65,9 +57,9 @@ final class SitemapNotInstalledTest extends Yii2TestCase
     public function testCheckAndOtherActions(): void
     {
         [, $output] = $this->yii('indexnow/check');
-        self::assertStringContainsString(SitemapSupport::CHECK_MISSING_BLOCK_IGNORED, $output);
+        self::assertStringContainsString('sitemap: not installed, the sitemap block in the configuration is ignored (composer require indexnowkit/sitemap)', $output);
         self::assertStringNotContainsString('spool', $output, 'no spool line, no unknown option line');
-        self::assertSame(SitemapSupport::CHECK_MISSING, SitemapSupport::checkLine([]), 'no block: the plain line');
+        self::assertSame('sitemap: not installed (composer require indexnowkit/sitemap)', $this->component()->sitemapPackage()->checkLine([], []), 'no block: the plain line');
 
         [$code, $output] = $this->yii('indexnow/submit', ['/a', 'dry-run' => true]);
         self::assertSame(ExitCode::SUCCESS, $code);
@@ -80,7 +72,7 @@ final class SitemapNotInstalledTest extends Yii2TestCase
         $component = $this->component();
         self::assertFalse($component->sitemapInstalled());
         self::assertTrue($component->config()->enabled);
-        self::assertSame([], ConfigFactory::factory($component->options, false)->unknownOptions($component->options));
+        self::assertSame([], ConfigFactory::factory($component->options, false, sitemapInstalled: false)->unknownOptions($component->options));
         self::assertSame([], $component->urlsForAll([]), 'the graph builds without the package');
         self::assertSame([], $this->logger->messages('warning'), 'the sitemap block (with a typo) is ignored as a whole');
         self::assertSame([], $this->logger->messages('critical'));
@@ -90,7 +82,7 @@ final class SitemapNotInstalledTest extends Yii2TestCase
             $component->sitemapConfig();
             self::fail('expected a LogicException');
         } catch (LogicException $e) {
-            self::assertSame(SitemapSupport::NOT_INSTALLED, $e->getMessage());
+            self::assertSame('indexnowkit/sitemap is not installed: composer require indexnowkit/sitemap', $e->getMessage());
         }
         $this->expectException(LogicException::class);
         $component->sitemapSource();

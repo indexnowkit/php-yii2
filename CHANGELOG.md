@@ -14,6 +14,12 @@ contain breaking changes, listed under "Changed".
   moved there from the core (`Testing\Conformance\KeyFileAssertions`, `CheckOutputAssertions`, `ReadmeAssertions`).
 - Requires `indexnowkit/console ^0.1`: the runners and definitions the console controller are built on moved there from the core
   with their FQCN unchanged (`IndexNowKit\Console\*`); Composer installs it with this package, nothing to do.
+- `Sitemap\SitemapSupport` (the `@internal` predicate with its static override) is gone: the component exposes
+  `sitemapPackage()` (an `IndexNowKit\Adapter\OptionalPackage`) and the new property `sitemapInstalled: ?bool`
+  (`null` detects, `false` runs as if the package were absent — tests set it in the component configuration).
+  `Config\ConfigFactory::factory()`, `create()` and `build()` take an appended `?bool $sitemapInstalled = null`. The
+  `check` line for a configured but ignored `sitemap` block is a warning now (it was ok). The invalid-block critical
+  line now ends with `(run "php yii indexnow/check")` (`SitemapConfig::loadOrDisabled()`).
 
 ### Documentation
 

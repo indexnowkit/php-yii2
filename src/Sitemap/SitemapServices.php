@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\Sitemap;
 
+use IndexNowKit\Adapter\OptionalPackage;
 use IndexNowKit\Check\CheckInterface;
-use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\Sitemap\Check\SitemapSpoolCheck;
 use IndexNowKit\Sitemap\SitemapConfig;
@@ -15,10 +15,20 @@ use Psr\Log\LoggerInterface;
 
 /**
  * The sitemap pieces of the component: the only wiring of the package (with `Console\SitemapAction`) that reads
- * `IndexNowKit\Sitemap\*`, called only when {@see SitemapSupport::installed()} holds.
+ * `IndexNowKit\Sitemap\*`, called only when {@see package()} says the package is installed
+ * (`IndexNowComponent::sitemapInstalled()`).
  */
 final class SitemapServices
 {
+    /**
+     * The one predicate for `indexnowkit/sitemap` (safe to call without the package: `::class` on an absent class
+     * is a string); null = detect, false = wire as if the package were absent (the component's `sitemapInstalled`).
+     */
+    public static function package(?bool $installed = null): OptionalPackage
+    {
+        return new OptionalPackage('indexnowkit/sitemap', SitemapReader::class, 'sitemap', $installed);
+    }
+
     /**
      * The dotted keys of the `sitemap` block, for `Config\ConfigFactory` (`SitemapConfig::OPTIONS`).
      *
@@ -37,13 +47,7 @@ final class SitemapServices
      */
     public static function config(array $block, LoggerInterface $logger): SitemapConfig
     {
-        try {
-            return SitemapConfig::fromArray($block);
-        } catch (ConfigurationException $e) {
-            $logger->critical('indexnow: invalid sitemap configuration, the sitemap command is disabled until it is fixed: {error}', ['error' => $e->getMessage(), 'exception' => $e]);
-
-            return SitemapConfig::disabled();
-        }
+        return SitemapConfig::loadOrDisabled($block, $logger, 'php yii indexnow/check');
     }
 
     public static function reader(SitemapConfig $config, TransportInterface $transport, LoggerInterface $logger): SitemapSourceInterface

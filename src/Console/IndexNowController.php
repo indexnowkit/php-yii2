@@ -24,7 +24,6 @@ use IndexNowKit\Yii2\ActiveRecord\ActiveRecordLoader;
 use IndexNowKit\Yii2\App;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\IndexNowComponent;
-use IndexNowKit\Yii2\Sitemap\SitemapSupport;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -177,7 +176,7 @@ final class IndexNowController extends Controller
             'explain' => Definitions::explain($words),
             'key-generate' => Definitions::keyGenerate(),
         ];
-        if (SitemapSupport::installed()) {
+        if ($this->component()->sitemapInstalled()) {
             $definitions['sitemap'] = SitemapAction::definition();
         }
 
@@ -240,13 +239,14 @@ final class IndexNowController extends Controller
      */
     public function actionSitemap(?string $sitemap = null): int
     {
-        if (!SitemapSupport::installed()) {
-            $this->io()->writeln('<error>' . SitemapSupport::NOT_INSTALLED . '</error>'); // one line, not a wrapped block: a cron log greps it
+        $component = $this->component();
+        if (!$component->sitemapInstalled()) {
+            $this->io()->writeln('<error>' . $component->sitemapPackage()->notInstalledMessage() . '</error>'); // one line, not a wrapped block: a cron log greps it
 
             return ExitCode::FAILURE;
         }
 
-        return SitemapAction::run($this->component(), $this->io(), $this->submitterFactory(), $this->formatter(), $sitemap, $this->changedSince, $this->allowForeignHosts, $this->force, $this->dryRun, $this->json);
+        return SitemapAction::run($component, $this->io(), $this->submitterFactory(), $this->formatter(), $sitemap, $this->changedSince, $this->allowForeignHosts, $this->force, $this->dryRun, $this->json);
     }
 
     /**

@@ -66,7 +66,9 @@ The full semantics of every core key, and the same table for the other adapters,
 
 Besides `options`, the component accepts replacements as instances, config arrays, class names or component ids
 (`Instance::ensure`): `transport` (`TransportInterface`), `debounceStore`, `dispatcher`, `urlResolver` (replaces the
-attribute resolver entirely), `logger` (PSR-3), `checks` (extra `CheckInterface`s for `indexnow/check`), `environment`.
+attribute resolver entirely), `logger` (PSR-3), `checks` (extra `CheckInterface`s for `indexnow/check`), `environment`,
+`sitemapInstalled` (`null` detects `indexnowkit/sitemap`; `false` runs as if the package were absent — tests, or a
+deployment that must not read sitemaps).
 
 ## Console controller properties
 

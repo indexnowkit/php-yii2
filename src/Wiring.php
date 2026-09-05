@@ -7,9 +7,7 @@ namespace IndexNowKit\Yii2;
 use IndexNowKit\Adapter\Services;
 use IndexNowKit\Adapter\ServicesBuilder;
 use IndexNowKit\Check\CheckInterface;
-use IndexNowKit\Check\CheckLevel;
 use IndexNowKit\Check\DebounceStoreCheck;
-use IndexNowKit\Check\StaticCheck;
 use IndexNowKit\Debounce\DebounceStoreFactory;
 use IndexNowKit\Debounce\DebounceStoreInterface;
 use IndexNowKit\Dispatch\DispatcherInterface;
@@ -25,7 +23,6 @@ use IndexNowKit\Yii2\Check\UrlManagerCheck;
 use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
-use IndexNowKit\Yii2\Sitemap\SitemapSupport;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
 use Throwable;
 use Yii;
@@ -87,7 +84,7 @@ final class Wiring
             new DebounceStoreCheck($services->config, (new CacheProbe())(...), IndexNowComponent::DEFAULT_DEBOUNCE_STORE),
             new UrlManagerCheck($component->options),
             new ActiveRecordCheck($component->activeRecordEnabled(), $component->modelClasses()),
-            SitemapSupport::installed() ? SitemapServices::spoolCheck($component->sitemapConfig()) : new StaticCheck(CheckLevel::Ok, SitemapSupport::checkLine($component->block('sitemap'))),
+            $component->sitemapInstalled() ? SitemapServices::spoolCheck($component->sitemapConfig()) : $component->sitemapPackage()->check($component->block('sitemap')),
         ];
         foreach ($component->checks as $check) {
             $checks[] = References::ensure(References::reference($check), CheckInterface::class);

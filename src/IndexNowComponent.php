@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2;
 
+use IndexNowKit\Adapter\OptionalPackage;
 use IndexNowKit\Adapter\Services;
 use IndexNowKit\Attribute\IndexNow;
 use IndexNowKit\Attribute\IndexNowDefaults;
@@ -38,7 +39,6 @@ use IndexNowKit\Yii2\Console\IndexNowController;
 use IndexNowKit\Yii2\Http\KeyFileController;
 use IndexNowKit\Yii2\Log\YiiLogger;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
-use IndexNowKit\Yii2\Sitemap\SitemapSupport;
 use LogicException;
 use Psr\Log\LoggerInterface;
 use Yii;
@@ -64,7 +64,8 @@ use yii\web\UrlManager;
  * Every core piece is replaceable through a property (`transport`, `debounceStore`, `dispatcher`, `urlResolver`,
  * `logger`, `checks`), given as an instance, a class name or a component id (`Instance::ensure`). The sitemap
  * pieces come from `Sitemap\SitemapServices` when the optional `indexnowkit/sitemap` is installed
- * ({@see SitemapSupport}); without it `indexnow/sitemap` prints one sentence and `indexnow/check` one line.
+ * (`Adapter\OptionalPackage`, {@see sitemapPackage()}); without it `indexnow/sitemap` prints one sentence and
+ * `indexnow/check` one line.
  */
 final class IndexNowComponent extends Component implements BootstrapInterface
 {
@@ -97,6 +98,12 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     /** Environment name for `production_environments`; default YII_ENV. */
     public ?string $environment = null;
+
+    /**
+     * Whether `indexnowkit/sitemap` is installed; null (the default) detects it, false makes the component behave
+     * as if the package were absent (tests, or a deployment that must not read sitemaps).
+     */
+    public ?bool $sitemapInstalled = null;
 
     private static bool $readerRegistered = false;
 
@@ -149,7 +156,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     public function config(): Config
     {
-        return $this->config ??= ConfigFactory::create($this->options, $this->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $this->queueExists(), $this->logger());
+        return $this->config ??= ConfigFactory::create($this->options, $this->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $this->queueExists(), $this->logger(), $this->sitemapInstalled());
     }
 
     public function logger(): LoggerInterface
@@ -289,16 +296,22 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         return $this->sitemap ??= SitemapServices::reader($this->sitemapConfig(), $this->transport(), $this->logger());
     }
 
-    /** Whether the optional `indexnowkit/sitemap` is installed ({@see SitemapSupport}). */
+    /** The optional `indexnowkit/sitemap` behind its one predicate: the `sitemapInstalled` property, else detection. */
+    public function sitemapPackage(): OptionalPackage
+    {
+        return SitemapServices::package($this->sitemapInstalled);
+    }
+
+    /** Whether the optional `indexnowkit/sitemap` is installed ({@see sitemapPackage()}). */
     public function sitemapInstalled(): bool
     {
-        return SitemapSupport::installed();
+        return $this->sitemapPackage()->installed();
     }
 
     private function requireSitemap(): void
     {
-        if (!SitemapSupport::installed()) {
-            throw new LogicException(SitemapSupport::NOT_INSTALLED);
+        if (!$this->sitemapInstalled()) {
+            throw new LogicException($this->sitemapPackage()->notInstalledMessage());
         }
     }
 

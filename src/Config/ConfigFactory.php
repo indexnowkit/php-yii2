@@ -8,7 +8,6 @@ use IndexNowKit\Adapter\ConfigFactory as CoreConfigFactory;
 use IndexNowKit\Config;
 use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
-use IndexNowKit\Yii2\Sitemap\SitemapSupport;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -41,14 +40,16 @@ final class ConfigFactory
      * Without indexnowkit/sitemap the `sitemap` block is ignored as a whole (no "unknown option" warning for options
      * written for the package); with it, its keys are owned and typos inside it are warned about.
      *
-     * @param array<string, mixed> $options     the component's `options`
-     * @param bool                 $queueExists whether the configured queue component exists (resolves `dispatch: auto`)
+     * @param array<string, mixed> $options          the component's `options`
+     * @param bool                 $queueExists      whether the configured queue component exists (resolves `dispatch: auto`)
+     * @param bool|null            $sitemapInstalled null = detect ({@see SitemapServices::package()}); the component
+     *                                               passes its `sitemapInstalled` property, tests pass false
      */
-    public static function factory(array $options, bool $queueExists): CoreConfigFactory
+    public static function factory(array $options, bool $queueExists, ?bool $sitemapInstalled = null): CoreConfigFactory
     {
         $queue = \is_array($options['queue'] ?? null) ? $options['queue'] : [];
         $component = \is_string($queue['component'] ?? null) && $queue['component'] !== '' ? $queue['component'] : 'queue';
-        $sitemap = SitemapSupport::installed();
+        $sitemap = $sitemapInstalled ?? SitemapServices::package()->installed();
 
         return new CoreConfigFactory(
             ownedOptions: $sitemap ? [...self::YII_OPTIONS, ...SitemapServices::options()] : self::YII_OPTIONS,
@@ -69,9 +70,9 @@ final class ConfigFactory
      *
      * @param array<string, mixed> $options the component's `options`
      */
-    public static function create(array $options, string $environment, bool $queueExists, ?LoggerInterface $logger = null): Config
+    public static function create(array $options, string $environment, bool $queueExists, ?LoggerInterface $logger = null, ?bool $sitemapInstalled = null): Config
     {
-        return self::factory($options, $queueExists)->load($options, $environment, $logger ?? new NullLogger());
+        return self::factory($options, $queueExists, $sitemapInstalled)->load($options, $environment, $logger ?? new NullLogger());
     }
 
     /**
@@ -81,8 +82,8 @@ final class ConfigFactory
      *
      * @throws ConfigurationException
      */
-    public static function build(array $options, string $environment, bool $queueExists): Config
+    public static function build(array $options, string $environment, bool $queueExists, ?bool $sitemapInstalled = null): Config
     {
-        return self::factory($options, $queueExists)->build($options, $environment);
+        return self::factory($options, $queueExists, $sitemapInstalled)->build($options, $environment);
     }
 }
