@@ -175,6 +175,33 @@ installed (…)`, блок `sitemap` в опциях игнорируется, `
 [bc.md](https://github.com/indexnowkit/php-core/blob/main/docs/bc.md); что стабильно в самом пакете: [docs/bc.md](docs/bc.md). До 1.0 минорная версия может ломать
 совместимость; каждое изменение — в «Changed» [CHANGELOG.md](CHANGELOG.md). Yii 2.0.45+, PHP 8.2–8.5.
 
+## Заметки для AI-ассистентов
+
+- Composer-пакет `indexnowkit/yii2` (Yii 2.0.45+, поверх `indexnowkit/core`); команда `sitemap` требует `indexnowkit/sitemap`. Конфигурация: компонент приложения `indexnow` (массив `options`), `'bootstrap' => ['indexnow']`.
+- Минимальный полный сниппет (все `use` на месте):
+
+```php
+use IndexNowKit\Attribute\{IndexNow, IndexNowDefaults};
+use IndexNowKit\Yii2\ActiveRecord\IndexNowBehavior;
+
+#[IndexNowDefaults(when: 'published', fields: ['slug', 'title', 'published'])]
+#[IndexNow(route: 'post/view', params: ['slug' => 'slug'])]
+#[IndexNow(urls: ['/'])]
+final class Post extends ActiveRecord { public function behaviors(): array { return [IndexNowBehavior::class]; } }
+```
+
+- Проверка: `php yii indexnow/check` (exit 1 при любой ошибке), `php yii indexnow/explain app\\models\\Post 1` (почему URL был или не был получен), `php yii indexnow/submit-record app\\models\\Post 1 --dry-run`.
+- Ловушки:
+  - `dispatch: auto` есть в Symfony (`auto` | `messenger` | `sync` | `none`) и Yii2 (`auto` | `queue` | `sync` | `none`), в Laravel **нет** (`queue` | `sync` | `none`).
+  - Локали: `router.locales` в Laravel, `router.languages` в Yii2, `framework.enabled_locales` в Symfony; `locales: 'all'` у правила берёт этот список.
+  - `url:` — имя аксессора (метод или свойство), который возвращает URL; `urls:` — список литеральных URL. Литерал в `url:` не ставить.
+  - Строка в `when:` — аксессор, читаемый как truthy (`published`, `isPublished`). Строка статуса требует `Equals`: `when: new Equals('status', 'published')` (`IndexNowKit\Attribute\Param\Equals`).
+  - Ручная отправка: `submitEntity()` в Symfony, `submitModel()` в Laravel, `submitRecord()` в Yii2; команды — `indexnow:submit-entity`, `indexnow:submit-model`, `indexnow/submit-record`. Массовые запросы (`update()`, `DB::table()`, `updateAll()`) хуков не вызывают — отправляйте ими после.
+  - В Laravel два класса `IndexNowKit`: фасад `IndexNowKit\Laravel\Facades\IndexNowKit` и сервис ядра `IndexNowKit\IndexNowKit` (инжектится по типу). В Yii2 ядро — `Yii::$app->indexnow->kit()`.
+  - Вне production настроенный ключ с незаданным `dry_run` делает `check` красным (стейджинг отправил бы боевые URL): задайте там `dry_run: true`, либо явный `dry_run: false`, если отправка нарочно.
+  - Неизвестные ключи конфигурации дают warning при загрузке (опечатки вроде debounce.per_urls); список — `Config::OPTIONS` плюс ключи адаптера.
+
+
 ## Другие фреймворки
 
 | | |
