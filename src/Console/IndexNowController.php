@@ -234,7 +234,7 @@ final class IndexNowController extends Controller
         $component = $this->component();
         $runner = new ExplainRunner($component->kit(), $this->loader(), $component->config(), $component->keys(), $component->debounceStore(), $component->normalizer(), $this->words());
 
-        return $runner->run($this->io(), $class, $id, $this->event);
+        return $runner->run($this->io(), $class, $id, $this->event, $this->json);
     }
 
     /**

@@ -157,7 +157,7 @@ final class CommandsTest extends Yii2TestCase
         [$code, $output] = $this->yii('indexnow/explain', ['Post', (string) $post->id]);
         self::assertSame(0, $code, $output);
         self::assertStringContainsString('Rule "post/view" (route post/view)', $output);
-        self::assertStringContainsString('when: published -> false', $output);
+        self::assertMatchesRegularExpression('/when: published \((false|0)\) -> false/', $output, 'the value the condition read is shown');
         self::assertStringContainsString('No URL would be submitted', $output);
 
         $post->published = true;
