@@ -20,6 +20,7 @@ contain breaking changes, listed under "Changed".
   hreflang; docs/troubleshooting.md: "Sent, but the engine answers" (403/422/429/202), "Duplicates, timing",
   "Staging submitted its URLs", "Duplicates with `memory` and several workers".
 - Russian translation: docs/troubleshooting.ru.md (linked from README.ru.md).
+- `homepage` in composer.json points at the docs site (https://indexnowkit.github.io/php/).
 
 ## [0.6.0] — 2026-09-05
 
