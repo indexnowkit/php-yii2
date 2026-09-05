@@ -122,7 +122,7 @@ Accessor'ы читают атрибуты и отношения AR (`category.sl
 Классы, которые нельзя аннотировать: `'active_record' => ['models' => [Product::class]]` в опциях или
 `Yii::$app->indexnow->observe(Product::class, [new IndexNow(...)])` в рантайме.
 
-Полная модель атрибута: [справочник core](https://github.com/indexnowkit/php/blob/main/packages/core/docs/attribute-reference.md).
+Полная модель атрибута: [справочник core](https://github.com/indexnowkit/php/blob/main/packages/core/docs/attribute-reference.ru.md).
 
 ## Как это работает
 
@@ -177,14 +177,14 @@ installed (…)`, блок `sitemap` в опциях игнорируется, `
 - [Правила мониторинга и фильтр Sentry](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#monitoring-rules),
   [удалённые страницы](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#deleted-pages-what-your-site-must-return),
   [что не отправлять](https://github.com/indexnowkit/php/blob/main/packages/core/docs/operations.md#what-not-to-submit).
-- [Мультидомен: хосты, www и apex, языки](docs/multi-domain.md) · [очередь](docs/queue.md) · [commit safety](docs/commit-safety.md) · [troubleshooting](docs/troubleshooting.md).
+- [Мультидомен: хосты, www и apex, языки](docs/multi-domain.md) · [очередь](docs/queue.md) · [commit safety](docs/commit-safety.md) · [troubleshooting](docs/troubleshooting.ru.md).
 
 ## Отладка
 
 `php yii indexnow/check` проверяет опции, скачивает файл ключа и показывает, как подключена отправка (очередь,
 кэш, красивые URL, хуки ActiveRecord, spool sitemap); `php yii indexnow/explain app\models\Post 1` показывает
 правила, guard-условия и URL одной записи, ничего не отправляя; категория лога `indexnow` на уровне `debug`
-объясняет, почему URL был или не был отправлен. Симптомы и решения: [docs/troubleshooting.md](docs/troubleshooting.md).
+объясняет, почему URL был или не был отправлен. Симптомы и решения: [docs/troubleshooting.ru.md](docs/troubleshooting.ru.md).
 
 ## Ограничения
 

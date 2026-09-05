@@ -19,6 +19,7 @@ contain breaking changes, listed under "Changed".
   docs/multi-domain.md (new): hosts, rules on another host, languages, origin of generated URLs, www and apex,
   hreflang; docs/troubleshooting.md: "Sent, but the engine answers" (403/422/429/202), "Duplicates, timing",
   "Staging submitted its URLs", "Duplicates with `memory` and several workers".
+- Russian translation: docs/troubleshooting.ru.md (linked from README.ru.md).
 
 ## [0.6.0] — 2026-09-05
 
