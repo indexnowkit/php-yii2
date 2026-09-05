@@ -3,6 +3,32 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.6.0] — 2026-09-05
+
+Wave 0a of docs/spec/17 with core 0.6.0. **`indexnow/check` fails when `YII_ENV` (or the component's `environment`)
+is not in `production_environments`, a key is configured and `dry_run` is not set** (a staging copy with the
+production key submits real URLs). A staging or preview environment that submits on purpose sets
+`'dry_run' => false` in the options and gets a warning instead.
+
+### Changed
+
+- Requires `indexnowkit/core ^0.6`; `indexnowkit/sitemap ^0.2` when installed.
+
+### Added
+
+- `internetarchive` and `amazon` accepted in `engines` (core 0.6).
+
+### Fixed
+
+- `"app\models\Post" is not an ActiveRecord class` names the base class the command expects; the verify-on-commit
+  message for a record without a primary key says what to do and what happens meanwhile.
+
+### Documentation
+
+- README: the component configuration comes before `key-generate` / `check` (the controller is registered by
+  `bootstrap()`); "Why this over X", "Notification, not indexing", the issues link. [docs/bc.md](docs/bc.md):
+  component options and properties, console actions, bootstrap ids, behavior, job.
+
 ## [0.5.0] — 2026-09-05
 
 `Retry-After` and the `retry.*` backoff are honoured by the yii2-queue job, which re-pushes the rejected URLs itself.
