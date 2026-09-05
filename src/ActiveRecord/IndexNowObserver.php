@@ -226,7 +226,7 @@ final class IndexNowObserver
     private function rowByPrimaryKey(BaseActiveRecord $record, array $pk): ?array
     {
         if ($pk === [] || !$record instanceof ActiveRecord) {
-            throw new RuntimeException(\sprintf('%s has no primary key to verify the change by.', $record::class));
+            throw new RuntimeException(\sprintf('%s has no primary key to verify the change by (verify-on-commit re-reads the row by its primary key). Declare primaryKey() on the record class; until then its changes count as landed and are submitted unverified.', $record::class));
         }
         $row = (new Query())->from($record::tableName())->where($pk)->one($record::getDb());
 

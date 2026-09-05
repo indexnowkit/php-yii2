@@ -67,7 +67,7 @@ final class ActiveRecordLoader implements SubjectLoaderInterface
     private static function activeRecordClass(string $class): string
     {
         if (!is_subclass_of($class, ActiveRecord::class)) {
-            throw new InvalidArgumentException(\sprintf('"%s" is not an ActiveRecord class.', $class));
+            throw new InvalidArgumentException(\sprintf('"%s" is not an ActiveRecord class (it does not extend %s): the command loads records by id through ActiveRecord.', $class, ActiveRecord::class));
         }
 
         return $class;
