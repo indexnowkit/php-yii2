@@ -22,4 +22,4 @@ levels are), and the `Wiring` / `References` helpers the component builds its gr
 
 ## Pinning
 
-`composer require indexnowkit/yii2:^0.6` gets every 0.6.x patch. Read the changelog before a minor.
+`composer require indexnowkit/yii2:^0.7` gets every 0.7.x patch. Read the changelog before a minor.

@@ -40,7 +40,7 @@
         "yiisoft/yii2-composer": "^2.0.10"
     },
     "require-dev": {
-        "indexnowkit/sitemap": "^0.2",
+        "indexnowkit/sitemap": "^0.3",
         "indexnowkit/testing": "^0.1",
         "phpstan/phpstan": "^2.2.13",
         "phpstan/phpstan-strict-rules": "^2.0.12",
@@ -50,7 +50,7 @@
         "yiisoft/yii2-queue": "^2.3"
     },
     "suggest": {
-        "indexnowkit/sitemap": "The indexnow/sitemap command (^0.2)",
+        "indexnowkit/sitemap": "The indexnow/sitemap command (^0.3)",
         "yiisoft/yii2-queue": "dispatch: queue — SubmitUrlsJob with retries in a worker",
         "symfony/http-client": "PSR-18 client for the submissions (with nyholm/psr7); any PSR-18 client works",
         "nyholm/psr7": "PSR-17 factories for the PSR-18 client"
@@ -80,7 +80,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "0.6.x-dev"
+            "dev-main": "0.7.x-dev"
         }
     }
 }
