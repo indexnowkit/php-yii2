@@ -23,6 +23,7 @@ use IndexNowKit\Yii2\Check\CacheProbe;
 use IndexNowKit\Yii2\Check\QueueCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
 use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
+use IndexNowKit\Yii2\Event\ResultDispatcher;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
@@ -53,6 +54,7 @@ final class Wiring
             $builder->transport(static fn(): TransportInterface => References::ensure(References::reference($component->transport), TransportInterface::class));
         }
         $builder->httpClientLocator(static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
+        $builder->events(new ResultDispatcher($component)); // every Result raises IndexNowComponent::EVENT_RESULT
         $builder->debounceStore($component->debounceStore !== null
             ? static fn(): DebounceStoreInterface => References::ensure(References::reference($component->debounceStore), DebounceStoreInterface::class)
             : static fn(Services $s): DebounceStoreInterface => DebounceStoreFactory::fromConfig(

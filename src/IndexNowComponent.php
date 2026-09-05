@@ -76,6 +76,11 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     public const KEY_FILE_ROUTE = self::KEY_FILE_CONTROLLER_ID . '/index';
     /** The debounce store when `debounce.store` is unset: the `cache` application component. */
     public const DEFAULT_DEBOUNCE_STORE = 'cache';
+    /**
+     * Triggered on the component with an {@see Event\ResultEvent} for every `Result` the submitter produces (the commands'
+     * submitters included): `Yii::$app->indexnow->on(IndexNowComponent::EVENT_RESULT, fn (ResultEvent $e) => ...)`.
+     */
+    public const EVENT_RESULT = 'indexnowResult';
 
     /** @var array<string, mixed> the configuration tree (core options + the Yii blocks, see docs/configuration.md) */
     public array $options = [];

@@ -25,6 +25,14 @@ contain breaking changes, listed under "Changed".
 - `php yii indexnow/explain --json` and the `when` values in the text output (console 0.2).
 - `php yii indexnow/config` (`--json`): the effective configuration with masked keys plus the component's own option
   blocks (console 0.2).
+- **`IndexNowComponent::EVENT_RESULT`** (spec 17 §5.7): the component triggers an `Event\ResultEvent` (`$result`) for
+  every `Result` of the submitter and of the command submitters, through the PSR-14 `Event\ResultDispatcher` the
+  wiring gives the core.
+
+### Changed
+
+- **`indexnow/*` console actions take `-v`, `-vv`, `-vvv` (and `SHELL_VERBOSITY`) as symfony/console does; the own
+  `--verbose` option is gone.** Migration: `php yii indexnow/sitemap --verbose` → `php yii indexnow/sitemap -v`.
 
 ## [0.7.0] — 2026-09-06
 

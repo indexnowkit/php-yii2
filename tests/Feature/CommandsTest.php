@@ -7,6 +7,8 @@ namespace IndexNowKit\Yii2\Tests\Feature;
 use IndexNowKit\Http\Response;
 use IndexNowKit\Testing\Conformance\CheckOutputAssertions;
 use IndexNowKit\Yii2\Console\IndexNowController;
+use IndexNowKit\Yii2\Event\ResultEvent;
+use IndexNowKit\Yii2\IndexNowComponent;
 use IndexNowKit\Yii2\Tests\Fixtures\Post;
 use IndexNowKit\Yii2\Tests\Yii2TestCase;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -52,6 +54,22 @@ final class CommandsTest extends Yii2TestCase
 
         CheckOutputAssertions::assertExitCode(1, $code, $output);
         CheckOutputAssertions::assertKeyFileHint($output, 403);
+    }
+
+    #[TestDox('every Result raises IndexNowComponent::EVENT_RESULT on the component, from the kit and from the command submitters')]
+    public function testResultsAreComponentEvents(): void
+    {
+        $seen = [];
+        $this->component()->on(IndexNowComponent::EVENT_RESULT, static function (ResultEvent $event) use (&$seen): void {
+            $seen[] = $event->result->engine . ' ' . $event->result->status->value;
+        });
+
+        $this->component()->submit(['/a']);
+        self::assertSame(['api ok'], $seen);
+
+        [$code] = $this->yii('indexnow/submit', ['/b', 'dry-run' => true]);
+        self::assertSame(0, $code);
+        self::assertSame(['api ok', 'api skipped'], $seen, 'the command submitter publishes too');
     }
 
     #[TestDox('indexnow/config --json prints the effective configuration with masked keys and the Yii-only keys')]

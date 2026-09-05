@@ -46,7 +46,9 @@ Yii::$app->indexnow->rules()->registerFor(Page::class, fn (Page $page): ?RuleSet
 
 `submit(iterable $urls)`, `submitRecord($record, Event $event)`, `submitRecords(iterable $records)` (one request for
 many), `urlsFor()`, `explain()` return `Result`s; `collect()` parks URLs in the request collector, `flush()` sends
-them now. Listen to results: `Yii::$app->indexnow->submitter()->addListener(fn (Result $r) => ...)`.
+them now. Listen to results the Yii way: `Yii::$app->indexnow->on(IndexNowComponent::EVENT_RESULT, fn (ResultEvent $e) => ...)`
+(`Event\ResultEvent::$result` is the `Result`; the submitter and the command submitters raise it for every result), or
+lower-level `Yii::$app->indexnow->submitter()->addListener(fn (Result $r) => ...)`.
 
 ## What is the core's
 

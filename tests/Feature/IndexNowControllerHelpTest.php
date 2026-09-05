@@ -35,7 +35,9 @@ final class IndexNowControllerHelpTest extends Yii2TestCase
         foreach (['live', 'host', 'probe-url', 'json', 'strict'] as $name) {
             self::assertSame(Definitions::check()->option($name)->description, $check[$name]['comment']);
         }
-        self::assertSame(' more output (-v)', $check['verbose']['comment'], 'verbose is not in the definitions: the property docblock applies');
+        self::assertArrayNotHasKey('verbose', $check, 'the own --verbose is gone: -v/-vv/-vvv as in symfony/console');
+        self::assertStringStartsWith(' verbose output (-v), as in symfony/console', $check['v']['comment'], 'v is not in the definitions: the property docblock applies');
+        self::assertArrayHasKey('vvv', $check);
         self::assertSame('string[]', $check['host']['type'], 'a repeatable option is an array property, --host=a,b');
 
         $submitRecord = $this->optionsHelp('submit-record');

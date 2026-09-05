@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\Console;
 
-use IndexNowKit\Adapter\SubmitterFactory;
 use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Console\CheckRunner;
 use IndexNowKit\Console\CommandDefinition;
@@ -40,7 +39,7 @@ use yii\di\Instance;
  * Registered by the component under the `indexnow` controller id; output goes through symfony/console so every
  * framework prints the same thing.
  *
- *   php yii indexnow/check --live --strict
+ *   php yii indexnow/check --live --strict          (-v, -vv, -vvv as in symfony/console)
  *   php yii indexnow/config --json
  *   php yii indexnow/check --json --host=www.example.com,example.de
  *   php yii indexnow/submit /a https://www.example.com/b --dry-run
@@ -90,10 +89,12 @@ final class IndexNowController extends Controller
     public mixed $writeEnv = null;
     public bool $noPrevious = false;
     public bool $yes = false;
-    /**
-     * @var bool more output (-v)
-     */
-    public bool $verbose = false;
+    /** @var bool verbose output (-v), as in symfony/console */
+    public bool $v = false;
+    /** @var bool very verbose output (-vv) */
+    public bool $vv = false;
+    /** @var bool debug output (-vvv) */
+    public bool $vvv = false;
 
     /**
      * The options of `sitemap` while indexnowkit/sitemap is not installed: the names of `Sitemap\Console\Definitions::sitemap()`,
@@ -106,7 +107,7 @@ final class IndexNowController extends Controller
         $definition = $this->definitions()[$actionID] ?? null;
         $options = $definition?->yiiOptions() ?? ($actionID === 'sitemap' ? self::SITEMAP_OPTIONS_WITHOUT_PACKAGE : []);
 
-        return array_merge(parent::options($actionID), ['verbose'], $options);
+        return array_merge(parent::options($actionID), ['v', 'vv', 'vvv'], $options);
     }
 
     /**
@@ -114,7 +115,7 @@ final class IndexNowController extends Controller
      */
     public function optionAliases(): array
     {
-        $aliases = ['v' => 'verbose'];
+        $aliases = [];
         foreach ($this->definitions() as $definition) {
             $aliases += $definition->yiiAliases();
         }
@@ -291,9 +292,31 @@ final class IndexNowController extends Controller
 
     private function io(): SymfonyStyle
     {
-        $output = $this->output ??= new ConsoleOutput($this->verbose ? OutputInterface::VERBOSITY_VERBOSE : OutputInterface::VERBOSITY_NORMAL);
+        $output = $this->output ??= new ConsoleOutput($this->verbosity());
 
         return new SymfonyStyle(new ArrayInput([]), $output);
+    }
+
+    /** `-v`, `-vv`, `-vvv` as in symfony/console (the runners print more with each level); `SHELL_VERBOSITY` when none is given. */
+    private function verbosity(): int
+    {
+        if ($this->vvv) {
+            return OutputInterface::VERBOSITY_DEBUG;
+        }
+        if ($this->vv) {
+            return OutputInterface::VERBOSITY_VERY_VERBOSE;
+        }
+        if ($this->v) {
+            return OutputInterface::VERBOSITY_VERBOSE;
+        }
+
+        return match (getenv('SHELL_VERBOSITY')) {
+            '-1' => OutputInterface::VERBOSITY_QUIET,
+            '1' => OutputInterface::VERBOSITY_VERBOSE,
+            '2' => OutputInterface::VERBOSITY_VERY_VERBOSE,
+            '3' => OutputInterface::VERBOSITY_DEBUG,
+            default => OutputInterface::VERBOSITY_NORMAL,
+        };
     }
 
     private function words(): Vocabulary
@@ -336,9 +359,7 @@ final class IndexNowController extends Controller
     private function submitterFactory(): SubmitterFactoryInterface
     {
         if ($this->submitters === null) {
-            $component = $this->component();
-
-            return new SubmitterFactory($component->transport(), $component->keys(), $component->config(), $component->debounceStore(), $component->throttle(), $component->normalizer(), $component->logger(), failureCache: $component->failureCache(), store: $component->submissionStore());
+            return $this->component()->services()->submitterFactory(); // the same events, failure cache and submission store as the application's submitter
         }
         $factory = Instance::ensure($this->submitters, SubmitterFactoryInterface::class);
         \assert($factory instanceof SubmitterFactoryInterface);
