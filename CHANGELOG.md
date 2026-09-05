@@ -5,6 +5,12 @@ contain breaking changes, listed under "Changed".
 
 ## [Unreleased]
 
+### Changed
+
+- Requires core 0.7: `Console\SubmitterFactory` / `Console\SubmitterFactoryInterface` are now
+  `IndexNowKit\Adapter\SubmitterFactory` / `IndexNowKit\Adapter\SubmitterFactoryInterface`, `Console\ResultSummary` is
+  `IndexNowKit\Submission\ResultSummary`. Application code that names them (a decorator of the `submitters` property of `IndexNowController`) changes the `use` line; nothing else.
+
 ### Documentation
 
 - README: the quick-start record is `tests/Readme/Post.php` verbatim (complete `use` lines, the `category` relation the

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\Console;
 
+use IndexNowKit\Adapter\SubmitterFactory;
+use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Console\CheckRunner;
 use IndexNowKit\Console\CommandDefinition;
 use IndexNowKit\Console\Definitions;
@@ -17,8 +19,6 @@ use IndexNowKit\Console\SubjectLoaderInterface;
 use IndexNowKit\Console\SubmitRunner;
 use IndexNowKit\Console\SubmitSubjectsOptions;
 use IndexNowKit\Console\SubmitSubjectsRunner;
-use IndexNowKit\Console\SubmitterFactory;
-use IndexNowKit\Console\SubmitterFactoryInterface;
 use IndexNowKit\Console\Vocabulary;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordLoader;
 use IndexNowKit\Yii2\App;

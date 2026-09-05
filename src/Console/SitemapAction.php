@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\Console;
 
+use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Console\CommandDefinition;
 use IndexNowKit\Console\ExitCode;
 use IndexNowKit\Console\ResultFormatterInterface;
-use IndexNowKit\Console\SubmitterFactoryInterface;
 use IndexNowKit\Sitemap\Console\Definitions;
 use IndexNowKit\Sitemap\Console\SitemapOptions;
 use IndexNowKit\Sitemap\Console\SitemapRunner;
