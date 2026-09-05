@@ -63,5 +63,5 @@ and artisan.
 
 `controllerMap['indexnow']` accepts `loader` (`IndexNowKit\Console\SubjectLoaderInterface`, tenant scoping or another
 id format), `formatter` (`ResultFormatterInterface`, your JSON envelope) and `submitters` (`SubmitterFactoryInterface`).
-The command bodies are the core's `IndexNowKit\Console\*Runner`; a tenant loop over `SubmitSubjectsRunner` is a
+The command bodies are the `IndexNowKit\Console\*Runner` of `indexnowkit/console`; a tenant loop over `SubmitSubjectsRunner` is a
 ten-line controller action.
