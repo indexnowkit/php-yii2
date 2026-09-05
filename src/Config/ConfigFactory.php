@@ -8,6 +8,7 @@ use IndexNowKit\Adapter\ConfigFactory as CoreConfigFactory;
 use IndexNowKit\Config;
 use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
+use IndexNowKit\Yii2\Verify\VerifyServices;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -44,15 +45,17 @@ final class ConfigFactory
      * @param bool                 $queueExists      whether the configured queue component exists (resolves `dispatch: auto`)
      * @param bool|null            $sitemapInstalled null = detect ({@see SitemapServices::package()}); the component
      *                                               passes its `sitemapInstalled` property, tests pass false
+     * @param bool|null            $verifyInstalled  the same for `indexnowkit/verify` ({@see VerifyServices::package()})
      */
-    public static function factory(array $options, bool $queueExists, ?bool $sitemapInstalled = null): CoreConfigFactory
+    public static function factory(array $options, bool $queueExists, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null): CoreConfigFactory
     {
         $queue = \is_array($options['queue'] ?? null) ? $options['queue'] : [];
         $component = \is_string($queue['component'] ?? null) && $queue['component'] !== '' ? $queue['component'] : 'queue';
         $sitemap = $sitemapInstalled ?? SitemapServices::package()->installed();
+        $verify = $verifyInstalled ?? VerifyServices::package()->installed();
 
         return new CoreConfigFactory(
-            ownedOptions: $sitemap ? [...self::YII_OPTIONS, ...SitemapServices::options()] : self::YII_OPTIONS,
+            ownedOptions: [...self::YII_OPTIONS, ...$sitemap ? SitemapServices::options() : [], ...$verify ? VerifyServices::options() : []],
             dispatchModes: self::DISPATCH_MODES,
             autoDispatch: static fn(): string => $queueExists ? 'queue' : 'sync',
             needBaseUrl: ['queue'],
@@ -61,7 +64,7 @@ final class ConfigFactory
                 ? \sprintf('"dispatch" is "queue" but the queue component "%s" is not configured (yiisoft/yii2-queue, option queue.component).', $component)
                 : null,
             checkCommand: 'php yii indexnow/check',
-            ignoreBlocks: $sitemap ? [] : ['sitemap'],
+            ignoreBlocks: [...$sitemap ? [] : ['sitemap'], ...$verify ? [] : ['verify']],
         );
     }
 
@@ -70,9 +73,9 @@ final class ConfigFactory
      *
      * @param array<string, mixed> $options the component's `options`
      */
-    public static function create(array $options, string $environment, bool $queueExists, ?LoggerInterface $logger = null, ?bool $sitemapInstalled = null): Config
+    public static function create(array $options, string $environment, bool $queueExists, ?LoggerInterface $logger = null, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null): Config
     {
-        return self::factory($options, $queueExists, $sitemapInstalled)->load($options, $environment, $logger ?? new NullLogger());
+        return self::factory($options, $queueExists, $sitemapInstalled, $verifyInstalled)->load($options, $environment, $logger ?? new NullLogger());
     }
 
     /**
@@ -82,8 +85,8 @@ final class ConfigFactory
      *
      * @throws ConfigurationException
      */
-    public static function build(array $options, string $environment, bool $queueExists, ?bool $sitemapInstalled = null): Config
+    public static function build(array $options, string $environment, bool $queueExists, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null): Config
     {
-        return self::factory($options, $queueExists, $sitemapInstalled)->build($options, $environment);
+        return self::factory($options, $queueExists, $sitemapInstalled, $verifyInstalled)->build($options, $environment);
     }
 }

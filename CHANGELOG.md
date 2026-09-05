@@ -3,6 +3,32 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.9.0] — Unreleased
+
+### Added
+
+- **`indexnowkit/verify` wiring** (spec 17 §6.1). The `verify` block of the component options (`enabled`, `redirect`,
+  `non_canonical`, `origin_error`, `delay`, `timeout`, `max_redirects`, `max_batch`, `robots_cache_ttl`, `user_agent`);
+  with the package and `verify.enabled: true` the graph's submitter is `VerifyingSubmitter` and the commands'
+  factory `VerifyingSubmitterFactory` (`Verify\VerifyServices`, `Wiring`), so sync flushes, yii2-queue jobs and the
+  commands verify. Component: `verifyInstalled` (predicate override), `verifyTransport` (the pre-flight transport
+  override), `samples`; `verifyPackage()`, `verifyInstalled()`, `verifyConfig()`, `verifyEnabled()`,
+  `verifyTransport()`, `robots()`, `submitterFactory()`, `unverifiedSubmitterFactory()`, `events()`. `check` lines:
+  `verify.installed`, `verify.dispatch` (warning with `dispatch: sync`), `verify.sample`. Without the package the
+  block is ignored as a whole (`check` says so), `--sample` is an error naming the install line and `verifyConfig()`
+  throws the install line.
+- **`indexnow/check --sample=a,b` / `--sample-class=Class,Class:id`** (comma-separated; `Check\SampleOptions`,
+  `Check\VerifySampleCheck`, `Check\RecordSampler` over the controller's loader). A URL with a comma cannot be given.
+- **`indexnow/config --json`** prints the `verify` section when the package is installed.
+- `Config\ConfigFactory::factory()/create()/build()` take an appended `?bool $verifyInstalled = null`.
+
+### Changed
+
+- Requires `indexnowkit/core ^0.9`, `indexnowkit/console ^0.3` and (dev/suggest) `indexnowkit/sitemap ^0.5`,
+  `indexnowkit/verify ^0.1`.
+- `IndexNowController` submits `--force` / `--dry-run` through `IndexNowComponent::submitterFactory()` (decorated
+  when verify is on) instead of the graph's plain factory; the `submitters` property still overrides it.
+
 ## [0.8.0] — 2026-09-06
 
 ### Changed

@@ -95,7 +95,7 @@ final class Fixtures
                 'db' => ['class' => Connection::class, 'dsn' => 'sqlite::memory:'],
                 'cache' => ['class' => \yii\caching\ArrayCache::class],
                 'urlManager' => ['enablePrettyUrl' => true, 'showScriptName' => false, 'rules' => self::urlRules()],
-                'indexnow' => ['class' => IndexNowComponent::class, 'options' => self::merge(self::options(), $optionOverrides), 'transport' => $transport, 'logger' => $logger] + $componentOverrides,
+                'indexnow' => ['class' => IndexNowComponent::class, 'options' => self::merge(self::options(), $optionOverrides), 'transport' => $transport, 'verifyTransport' => $transport, 'logger' => $logger] + $componentOverrides,
             ],
         ];
 

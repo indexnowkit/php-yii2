@@ -22,6 +22,7 @@ use IndexNowKit\Console\SubmitSubjectsRunner;
 use IndexNowKit\Console\Vocabulary;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordLoader;
 use IndexNowKit\Yii2\App;
+use IndexNowKit\Yii2\Check\RecordSampler;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\IndexNowComponent;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -78,6 +79,10 @@ final class IndexNowController extends Controller
     public bool $strict = false;
     /** @var string[] `--host=a,b` (Yii splits the comma-separated value into the array) */
     public array $host = [];
+    /** @var string[] `--sample=a,b`: URLs to fetch and report (needs indexnowkit/verify); a URL with a comma cannot be given this way */
+    public array $sample = [];
+    /** @var string[] `--sample-class=App\models\Post,App\models\Post:42` */
+    public array $sampleClass = [];
     public ?string $probeUrl = null;
     public string $event = 'updated';
     public int|string $limit = 1000;
@@ -196,9 +201,12 @@ final class IndexNowController extends Controller
     public function actionCheck(): int
     {
         $component = $this->component();
+        $component->samples->urls = array_values(array_filter($this->sample, static fn(string $v): bool => $v !== ''));
+        $component->samples->classes = array_values(array_filter($this->sampleClass, static fn(string $v): bool => $v !== ''));
+        $component->samples->sampler = (new RecordSampler($this->loader(), $component->kit()))(...);
         $runner = new CheckRunner($component->checker(), $this->words());
 
-        return $runner->run($this->io(), fn(): mixed => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists()), $this->live, array_values($this->host), $this->probeUrl, $this->json, $this->strict);
+        return $runner->run($this->io(), fn(): mixed => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists(), $component->sitemapInstalled(), $component->verifyInstalled()), $this->live, array_values($this->host), $this->probeUrl, $this->json, $this->strict);
     }
 
     /** Print the effective IndexNow configuration: defaults and environment applied, keys masked. */
@@ -206,7 +214,9 @@ final class IndexNowController extends Controller
     {
         $component = $this->component();
 
-        return (new ConfigRunner($this->words()))->run($this->io(), fn(): \IndexNowKit\Config => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists()), $component->options, $this->json);
+        $packages = $component->verifyInstalled() ? ['verify' => $component->verifyConfig()->toArray()] : [];
+
+        return (new ConfigRunner($this->words()))->run($this->io(), fn(): \IndexNowKit\Config => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists(), $component->sitemapInstalled(), $component->verifyInstalled()), $component->options, $this->json, $packages);
     }
 
     /**
@@ -359,7 +369,7 @@ final class IndexNowController extends Controller
     private function submitterFactory(): SubmitterFactoryInterface
     {
         if ($this->submitters === null) {
-            return $this->component()->services()->submitterFactory(); // the same events, failure cache and submission store as the application's submitter
+            return $this->component()->submitterFactory(); // the graph's factory (the same events, failure cache and submission store as the application's submitter), decorated with the pre-flight when verify.enabled
         }
         $factory = Instance::ensure($this->submitters, SubmitterFactoryInterface::class);
         \assert($factory instanceof SubmitterFactoryInterface);

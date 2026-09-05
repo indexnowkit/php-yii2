@@ -6,6 +6,7 @@ namespace IndexNowKit\Yii2;
 
 use IndexNowKit\Adapter\OptionalPackage;
 use IndexNowKit\Adapter\Services;
+use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Attribute\IndexNow;
 use IndexNowKit\Attribute\IndexNowDefaults;
 use IndexNowKit\Attribute\ParamExtractor;
@@ -33,13 +34,18 @@ use IndexNowKit\Url\ResolvedUrl;
 use IndexNowKit\Url\RouteUrlResolverInterface;
 use IndexNowKit\Url\UrlNormalizerInterface;
 use IndexNowKit\Url\UrlResolverInterface;
+use IndexNowKit\Verify\RobotsCache;
+use IndexNowKit\Verify\VerifyConfig;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordSubjectReader;
 use IndexNowKit\Yii2\ActiveRecord\IndexNowObserver;
+use IndexNowKit\Yii2\Check\SampleOptions;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\Console\IndexNowController;
+use IndexNowKit\Yii2\Event\ResultDispatcher;
 use IndexNowKit\Yii2\Http\KeyFileController;
 use IndexNowKit\Yii2\Log\YiiLogger;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
+use IndexNowKit\Yii2\Verify\VerifyServices;
 use LogicException;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface as Psr16;
@@ -115,6 +121,15 @@ final class IndexNowComponent extends Component implements BootstrapInterface
      */
     public ?bool $sitemapInstalled = null;
 
+    /** The same for `indexnowkit/verify`. */
+    public ?bool $verifyInstalled = null;
+
+    /** @var TransportInterface|array<string, mixed>|string|null replacement transport of the pre-flight GETs of indexnowkit/verify (tests); default: `verify.timeout`, `verify.user_agent` over `http.client` */
+    public mixed $verifyTransport = null;
+
+    /** The `--sample` / `--sample-class` values of the running `indexnow/check` ({@see Check\SampleOptions}); the controller fills them. */
+    public SampleOptions $samples;
+
     private static bool $readerRegistered = false;
 
     private ?Config $config = null;
@@ -124,10 +139,16 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     private ?VerifyingStaging $staging = null;
     private ?SitemapConfig $sitemapConfig = null;
     private ?SitemapSourceInterface $sitemap = null;
+    private ?VerifyConfig $verifyConfig = null;
+    private ?TransportInterface $verifyTransportInstance = null;
+    private ?RobotsCache $robots = null;
+    private ?SubmitterFactoryInterface $submitterFactory = null;
+    private ?ResultDispatcher $events = null;
 
     public function init(): void
     {
         parent::init();
+        $this->samples = new SampleOptions();
         if (!self::$readerRegistered) {
             ParamExtractor::registerReader(new ActiveRecordSubjectReader());
             self::$readerRegistered = true;
@@ -166,7 +187,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     public function config(): Config
     {
-        return $this->config ??= ConfigFactory::create($this->options, $this->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $this->queueExists(), $this->logger(), $this->sitemapInstalled());
+        return $this->config ??= ConfigFactory::create($this->options, $this->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $this->queueExists(), $this->logger(), $this->sitemapInstalled(), $this->verifyInstalled());
     }
 
     public function logger(): LoggerInterface
@@ -334,6 +355,98 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     {
         if (!$this->sitemapInstalled()) {
             throw new LogicException($this->sitemapPackage()->notInstalledMessage());
+        }
+    }
+
+    /** The optional `indexnowkit/verify` behind its one predicate: the `verifyInstalled` property, else detection. */
+    public function verifyPackage(): OptionalPackage
+    {
+        return VerifyServices::package($this->verifyInstalled);
+    }
+
+    /** Whether the optional `indexnowkit/verify` is installed ({@see verifyPackage()}). */
+    public function verifyInstalled(): bool
+    {
+        return $this->verifyPackage()->installed();
+    }
+
+    /**
+     * The validated `verify` block; a broken value switches the pre-flight off with a critical log line. Needs the
+     * optional `indexnowkit/verify`: without it a LogicException with the install line.
+     *
+     * @throws LogicException when indexnowkit/verify is not installed
+     */
+    public function verifyConfig(): VerifyConfig
+    {
+        $this->requireVerify();
+
+        return $this->verifyConfig ??= VerifyServices::config($this->block('verify'), $this->logger());
+    }
+
+    /** Whether the graph submits through the pre-flight: the package is installed and `verify.enabled` is on. */
+    public function verifyEnabled(): bool
+    {
+        return $this->verifyInstalled() && $this->verifyConfig()->enabled;
+    }
+
+    /**
+     * The transport of the pre-flight GETs: the `verifyTransport` property, else `verify.timeout` and
+     * `verify.user_agent` over `http.client`.
+     *
+     * @throws LogicException when indexnowkit/verify is not installed
+     */
+    public function verifyTransport(): TransportInterface
+    {
+        $this->requireVerify();
+        if ($this->verifyTransportInstance === null) {
+            $this->verifyTransportInstance = $this->verifyTransport !== null
+                ? References::ensure(References::reference($this->verifyTransport), TransportInterface::class)
+                : VerifyServices::transport($this->verifyConfig(), $this->services(), static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
+        }
+
+        return $this->verifyTransportInstance;
+    }
+
+    /**
+     * @throws LogicException when indexnowkit/verify is not installed
+     */
+    public function robots(): RobotsCache
+    {
+        $this->requireVerify();
+
+        return $this->robots ??= VerifyServices::robots($this->verifyConfig(), $this->services(), $this->verifyTransport());
+    }
+
+    /**
+     * The submitter factory of the commands (`--force`, `--dry-run`): the graph's, decorated with the pre-flight
+     * when {@see verifyEnabled()}; {@see unverifiedSubmitterFactory()} is the plain one (`indexnow/sitemap --no-verify`).
+     */
+    public function submitterFactory(): SubmitterFactoryInterface
+    {
+        if ($this->submitterFactory === null) {
+            $plain = $this->unverifiedSubmitterFactory();
+            $this->submitterFactory = $this->verifyEnabled() ? VerifyServices::submitterFactory($plain, $this->verifyConfig(), $this->services(), $this->verifyTransport(), $this->robots(), $this->events()) : $plain;
+        }
+
+        return $this->submitterFactory;
+    }
+
+    /** The plain command submitter factory of the graph (the same events, failure cache and submission store as the application's submitter). */
+    public function unverifiedSubmitterFactory(): SubmitterFactoryInterface
+    {
+        return $this->services()->submitterFactory();
+    }
+
+    /** The PSR-14 dispatcher every Result goes through ({@see EVENT_RESULT}); one per component. */
+    public function events(): ResultDispatcher
+    {
+        return $this->events ??= new ResultDispatcher($this);
+    }
+
+    private function requireVerify(): void
+    {
+        if (!$this->verifyInstalled()) {
+            throw new LogicException($this->verifyPackage()->notInstalledMessage());
         }
     }
 

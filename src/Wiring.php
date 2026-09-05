@@ -14,6 +14,8 @@ use IndexNowKit\Dispatch\DispatcherInterface;
 use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\Submission\SubmissionStoreInterface;
+use IndexNowKit\Submitter;
+use IndexNowKit\SubmitterInterface;
 use IndexNowKit\Url\ArrayResolverLocator;
 use IndexNowKit\Url\RouteUrlResolverInterface;
 use IndexNowKit\Url\UrlResolverInterface;
@@ -22,11 +24,12 @@ use IndexNowKit\Yii2\Check\ActiveRecordCheck;
 use IndexNowKit\Yii2\Check\CacheProbe;
 use IndexNowKit\Yii2\Check\QueueCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
+use IndexNowKit\Yii2\Check\VerifySampleCheck;
 use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
-use IndexNowKit\Yii2\Event\ResultDispatcher;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
 use IndexNowKit\Yii2\Sitemap\SitemapServices;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
+use IndexNowKit\Yii2\Verify\VerifyServices;
 use Psr\SimpleCache\CacheInterface as Psr16;
 use Throwable;
 use Yii;
@@ -54,7 +57,19 @@ final class Wiring
             $builder->transport(static fn(): TransportInterface => References::ensure(References::reference($component->transport), TransportInterface::class));
         }
         $builder->httpClientLocator(static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
-        $builder->events(new ResultDispatcher($component)); // every Result raises IndexNowComponent::EVENT_RESULT
+        $builder->events($component->events()); // every Result raises IndexNowComponent::EVENT_RESULT
+        if ($component->verifyEnabled()) {
+            // The pre-flight decorator around the default submitter of the graph: sync flushes and yii2-queue jobs verify.
+            $builder->submitter(static fn(Services $s): SubmitterInterface => VerifyServices::submitter(
+                new Submitter($s->client(), $s->config, $s->debounceStore(), $s->logger, $s->normalizer(), $component->events(), $s->submissionStore()),
+                $component->verifyConfig(),
+                $s,
+                $component->verifyTransport(),
+                $component->robots(),
+                $component->events(),
+                $s->config->dispatch === 'sync' && Yii::$app instanceof \yii\web\Application,
+            ));
+        }
         $builder->debounceStore($component->debounceStore !== null
             ? static fn(): DebounceStoreInterface => References::ensure(References::reference($component->debounceStore), DebounceStoreInterface::class)
             : static fn(Services $s): DebounceStoreInterface => DebounceStoreFactory::fromConfig(
@@ -98,6 +113,9 @@ final class Wiring
             new UrlManagerCheck($component->options),
             new ActiveRecordCheck($component->activeRecordEnabled(), $component->modelClasses()),
             $component->sitemapInstalled() ? SitemapServices::spoolCheck($component->sitemapConfig()) : $component->sitemapPackage()->check($component->block('sitemap')),
+            ...$component->verifyInstalled()
+                ? VerifyServices::checks($component->verifyConfig(), $services, $component->verifyTransport(), $component->robots(), $component->samples)
+                : [new VerifySampleCheck($component->samples, null, $component->verifyPackage()->checkLine($component->block('verify')), $component->verifyPackage()->checkLevel($component->block('verify')))],
         ];
         foreach ($component->checks as $check) {
             $checks[] = References::ensure(References::reference($check), CheckInterface::class);
