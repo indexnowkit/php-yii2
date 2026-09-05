@@ -20,6 +20,8 @@ contain breaking changes, listed under "Changed".
 - Component property `submissionStore` (instance, class, configuration array or component id of a
   `Submission\SubmissionStoreInterface`; default: nothing is recorded): the store the submitter and the command
   submitters record every `Result` in (core 0.8); `IndexNowComponent::submissionStore()` returns it.
+- Options block `normalizer` (`strip_tracking_params`, `tracking_params`, `trailing_slash`, `sort_query`): the canonical
+  form of every URL (core 0.8), read through `Config::OPTIONS`. Tracking parameters are stripped by default.
 
 ## [0.7.0] — 2026-09-06
 
