@@ -69,24 +69,43 @@ php yii indexnow/check                         # опции, доступнос�
 
 ## Объявите, у чего есть публичная страница
 
+<!-- test: quickstart-model -->
 ```php
 use IndexNowKit\Attribute\{IndexNow, IndexNowDefaults};
 use IndexNowKit\Yii2\ActiveRecord\IndexNowBehavior;
+use yii\db\ActiveQuery;
+use yii\db\ActiveRecord;
 
 #[IndexNowDefaults(when: 'published', fields: ['slug', 'title', 'body', 'published'])]
 #[IndexNow(route: 'post/view', params: ['slug' => 'slug'])]
 #[IndexNow(route: 'post/amp', params: ['slug' => 'slug'], when: 'amp')]
-#[IndexNow(via: 'category')]      // изменённый пост обновляет и страницу категории
+#[IndexNow(via: 'category')]      // изменившийся пост обновляет и страницу категории
 #[IndexNow(urls: ['/'])]          // и главную
 final class Post extends ActiveRecord
 {
+    public static function tableName(): string
+    {
+        return 'posts';
+    }
+
+    public function init(): void
+    {
+        parent::init();
+        $this->loadDefaultValues();   // у `published` дефолт в базе: сделать его видимым до первого сохранения
+    }
+
     public function behaviors(): array
     {
         return [IndexNowBehavior::class];
     }
+
+    public function getCategory(): ActiveQuery
+    {
+        return $this->hasOne(Category::class, ['id' => 'category_id']);
+    }
 }
 ```
-
+<!-- /test -->
 | Опция | Смысл |
 |---|---|
 | `route` / `params` | Yii-маршрут (`controller/action`) и `param => атрибут, метод, "self", путь.через.точку` (`self` = первичный ключ) |

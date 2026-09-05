@@ -142,7 +142,7 @@ final class Fixtures
 
     public static function migrate(Connection $db): void
     {
-        $db->createCommand()->createTable('posts', ['id' => 'pk', 'slug' => 'string NOT NULL', 'title' => 'string NOT NULL DEFAULT \'title\'', 'published' => 'boolean NOT NULL DEFAULT 1', 'views' => 'integer NOT NULL DEFAULT 0'])->execute();
+        $db->createCommand()->createTable('posts', ['id' => 'pk', 'slug' => 'string NOT NULL', 'title' => 'string NOT NULL DEFAULT \'title\'', 'body' => 'text', 'published' => 'boolean NOT NULL DEFAULT 1', 'amp' => 'boolean NOT NULL DEFAULT 0', 'views' => 'integer NOT NULL DEFAULT 0', 'category_id' => 'integer'])->execute();
         $db->createCommand()->createTable('multi_posts', ['id' => 'pk', 'slug' => 'string NOT NULL', 'published' => 'boolean NOT NULL DEFAULT 1', 'amp' => 'boolean NOT NULL DEFAULT 0'])->execute();
         $db->createCommand()->createTable('categories', ['id' => 'pk', 'slug' => 'string NOT NULL'])->execute();
         $db->createCommand()->createTable('categorized_posts', ['id' => 'pk', 'slug' => 'string NOT NULL', 'views' => 'integer NOT NULL DEFAULT 0', 'category_id' => 'integer', 'updated_at' => 'integer'])->execute();

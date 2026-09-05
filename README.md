@@ -75,9 +75,12 @@ route `/<key>.txt`.
 
 `#[IndexNow]` is repeatable: one attribute per family of public URLs. `IndexNowBehavior` registers the hooks.
 
+<!-- test: quickstart-model -->
 ```php
 use IndexNowKit\Attribute\{IndexNow, IndexNowDefaults};
 use IndexNowKit\Yii2\ActiveRecord\IndexNowBehavior;
+use yii\db\ActiveQuery;
+use yii\db\ActiveRecord;
 
 #[IndexNowDefaults(when: 'published', fields: ['slug', 'title', 'body', 'published'])]
 #[IndexNow(route: 'post/view', params: ['slug' => 'slug'])]
@@ -86,13 +89,29 @@ use IndexNowKit\Yii2\ActiveRecord\IndexNowBehavior;
 #[IndexNow(urls: ['/'])]          // and the homepage
 final class Post extends ActiveRecord
 {
+    public static function tableName(): string
+    {
+        return 'posts';
+    }
+
+    public function init(): void
+    {
+        parent::init();
+        $this->loadDefaultValues();   // `published` has a database default: make it visible before the first save
+    }
+
     public function behaviors(): array
     {
         return [IndexNowBehavior::class];
     }
+
+    public function getCategory(): ActiveQuery
+    {
+        return $this->hasOne(Category::class, ['id' => 'category_id']);
+    }
 }
 ```
-
+<!-- /test -->
 | Option | Meaning |
 |---|---|
 | `route` / `params` | a Yii route (`controller/action`) and `param => attribute, method, "self", dotted.path` (`self` = the primary key) |
