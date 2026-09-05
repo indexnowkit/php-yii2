@@ -86,6 +86,8 @@ final class IndexNowController extends Controller
     public int|string $length = 32;
     public bool $alphanumeric = false;
     public mixed $writeEnv = null;
+    public bool $noPrevious = false;
+    public bool $yes = false;
     /**
      * @var bool more output (-v)
      */
@@ -263,7 +265,7 @@ final class IndexNowController extends Controller
             default => Yii::getAlias('@app') . '/.env',
         };
 
-        return (new KeyGenerateRunner($this->words()))->run($this->io(), is_numeric($this->length) ? (int) $this->length : 32, !$this->alphanumeric, $envFile, $this->force);
+        return (new KeyGenerateRunner($this->words()))->run($this->io(), is_numeric($this->length) ? (int) $this->length : 32, !$this->alphanumeric, $envFile, $this->force, $this->noPrevious, $this->yes);
     }
 
     private function component(): IndexNowComponent
