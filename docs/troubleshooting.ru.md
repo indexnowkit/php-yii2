@@ -2,7 +2,7 @@
 
 [English version](troubleshooting.md)
 
-Начните с `php yii indexnow/check`, затем `php yii indexnow/explain app\models\Post <id>`, затем категория лога `indexnow`
+Начните с `php yii indexnow/check`, затем `php yii indexnow/explain 'app\models\Post' <id>`, затем категория лога `indexnow`
 на `debug` (`log.targets[].categories = ['indexnow']`, `levels = ['error', 'warning', 'info', 'trace']`).
 
 ## Не отправляется ничего

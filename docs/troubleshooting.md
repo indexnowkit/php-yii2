@@ -2,7 +2,7 @@
 
 [Русская версия](troubleshooting.ru.md)
 
-Start with `php yii indexnow/check`, then `php yii indexnow/explain app\models\Post <id>`, then the `indexnow` log
+Start with `php yii indexnow/check`, then `php yii indexnow/explain 'app\models\Post' <id>`, then the `indexnow` log
 category at `debug` (`log.targets[].categories = ['indexnow']`, `levels = ['error', 'warning', 'info', 'trace']`).
 
 ## Nothing is sent

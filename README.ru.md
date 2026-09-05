@@ -41,8 +41,8 @@ Bing URL Submission API и Google Indexing API — другие протокол
 ## Установка
 
 ```bash
-composer require indexnowkit/yii2
-composer require indexnowkit/sitemap           # опционально: команда indexnow/sitemap
+composer require indexnowkit/yii2 symfony/http-client nyholm/psr7   # подойдёт любой PSR-18 клиент + PSR-17 фабрики
+composer require indexnowkit/sitemap                                # опционально: команда indexnow/sitemap
 ```
 
 ```php
@@ -54,20 +54,31 @@ composer require indexnowkit/sitemap           # опционально: ком�
         'options' => [
             'key' => getenv('INDEXNOW_KEY'),
             'base_url' => 'https://www.example.com',   // для консольных команд и воркеров очереди
+            'dry_run' => YII_ENV_DEV,                  // dev/staging: логировать, не отправлять (без этого вне production check падает)
         ],
     ],
 ],
 ```
 
 ```bash
-php yii indexnow/key-generate --write-env      # INDEXNOW_KEY в .env (или просто напечатать)
+php yii indexnow/key-generate --write-env      # пишет INDEXNOW_KEY=… в .env (или печатает ключ)
 php yii indexnow/check                         # опции, доступность файла ключа, очередь, кэш, URL-правила
 ```
 
-Нужен PSR-18 клиент (`symfony/http-client` + `nyholm/psr7` или Guzzle): пакет находит его сам либо берёт компонент/класс
-из `http.client`. Для файла ключа `/<key>.txt` нужны красивые URL (`urlManager.enablePrettyUrl`).
+Yii2 сам `.env` не читает: экспортируйте переменную (`export INDEXNOW_KEY=…`), задайте её в окружении веб-сервера или
+контейнера, либо загрузите файл через `vlucas/phpdotenv` до `config/*.php` — иначе `getenv('INDEXNOW_KEY')` вернёт
+`false`, а `check` скажет `no key configured`. В `yii2-app-basic` `config/web.php` и `config/console.php` независимы:
+настройте компонент `indexnow` **и** `urlManager` (красивые URL, правила) в обоих, иначе `check`, `explain` и
+`submit-record` увидят не ту конфигурацию, что веб-приложение. Для файла ключа `/<key>.txt` нужны красивые URL
+(`urlManager.enablePrettyUrl`). Нужен PSR-18 клиент (`symfony/http-client` + `nyholm/psr7`, как выше, или Guzzle):
+пакет находит его сам либо берёт компонент/класс из `http.client`.
 
 ## Объявите, у чего есть публичная страница
+
+`#[IndexNow]` повторяемый: один атрибут на семейство публичных URL. `IndexNowBehavior` регистрирует хуки. Сохраните
+пример как `models/Post.php` с `namespace app\models;` — он читает колонки `slug`, `title`, `body`, `published`, `amp`
+(AMP-страница существует, пока true) и `category_id`; `Category` — ваша запись со своим правилом `#[IndexNow]`
+(уберите строку `via: 'category'`, если её нет).
 
 <!-- test: quickstart-model -->
 ```php
@@ -182,7 +193,7 @@ installed (…)`, блок `sitemap` в опциях игнорируется, `
 ## Отладка
 
 `php yii indexnow/check` проверяет опции, скачивает файл ключа и показывает, как подключена отправка (очередь,
-кэш, красивые URL, хуки ActiveRecord, spool sitemap); `php yii indexnow/explain app\models\Post 1` показывает
+кэш, красивые URL, хуки ActiveRecord, spool sitemap); `php yii indexnow/explain 'app\models\Post' 1` показывает
 правила, guard-условия и URL одной записи, ничего не отправляя; категория лога `indexnow` на уровне `debug`
 объясняет, почему URL был или не был отправлен. Симптомы и решения: [docs/troubleshooting.ru.md](docs/troubleshooting.ru.md).
 
@@ -219,7 +230,7 @@ use IndexNowKit\Yii2\ActiveRecord\IndexNowBehavior;
 final class Post extends ActiveRecord { public function behaviors(): array { return [IndexNowBehavior::class]; } }
 ```
 
-- Проверка: `php yii indexnow/check` (exit 1 при любой ошибке), `php yii indexnow/explain app\\models\\Post 1` (почему URL был или не был получен), `php yii indexnow/submit-record app\\models\\Post 1 --dry-run`.
+- Проверка: `php yii indexnow/check` (exit 1 при любой ошибке), `php yii indexnow/explain 'app\\models\\Post' 1` (почему URL был или не был получен), `php yii indexnow/submit-record 'app\\models\\Post' 1 --dry-run`.
 - Ловушки:
   - `dispatch: auto` есть в Symfony (`auto` | `messenger` | `sync` | `none`) и Yii2 (`auto` | `queue` | `sync` | `none`), в Laravel **нет** (`queue` | `sync` | `none`).
   - Локали: `router.locales` в Laravel, `router.languages` в Yii2, `framework.enabled_locales` в Symfony; `locales: 'all'` у правила берёт этот список.

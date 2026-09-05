@@ -44,8 +44,8 @@ does the part that goes wrong in practice:
 ## Install
 
 ```bash
-composer require indexnowkit/yii2
-composer require indexnowkit/sitemap           # optional: the indexnow/sitemap command
+composer require indexnowkit/yii2 symfony/http-client nyholm/psr7   # any PSR-18 client + PSR-17 factories work
+composer require indexnowkit/sitemap                                # optional: the indexnow/sitemap command
 ```
 
 ```php
@@ -57,23 +57,32 @@ composer require indexnowkit/sitemap           # optional: the indexnow/sitemap 
         'options' => [
             'key' => getenv('INDEXNOW_KEY'),
             'base_url' => 'https://www.example.com',   // used by console commands and queue workers
+            'dry_run' => YII_ENV_DEV,                  // dev/staging: log the request, send nothing (check fails when this is unset outside production)
         ],
     ],
 ],
 ```
 
 ```bash
-php yii indexnow/key-generate --write-env      # INDEXNOW_KEY in .env (or print it)
+php yii indexnow/key-generate --write-env      # writes INDEXNOW_KEY=… to .env (or prints the key)
 php yii indexnow/check                         # options, key file reachable, queue, cache, URL rules
 ```
 
-The package needs a PSR-18 client (`symfony/http-client` + `nyholm/psr7`, or Guzzle); it discovers one, or takes
-the component/class named in `http.client`. Pretty URLs (`urlManager.enablePrettyUrl`) are required for the key file
-route `/<key>.txt`.
+Yii2 does not read `.env` by itself: export the variable (`export INDEXNOW_KEY=…`), put it in the web server or
+container environment, or load the file with `vlucas/phpdotenv` before `config/*.php` runs — `getenv('INDEXNOW_KEY')`
+returns `false` until one of these is done, and `check` says `no key configured`. In `yii2-app-basic`, `config/web.php`
+and `config/console.php` are independent: configure the `indexnow` component **and** `urlManager` (pretty URLs,
+rules) in both, or `check`, `explain` and `submit-record` see a different setup than the web application. Pretty URLs
+(`urlManager.enablePrettyUrl`) are required for the key file route `/<key>.txt`. The package needs a PSR-18 client
+(`symfony/http-client` + `nyholm/psr7` as above, or Guzzle); it discovers one, or takes the component/class named in
+`http.client`.
 
 ## Declare what has a public page
 
-`#[IndexNow]` is repeatable: one attribute per family of public URLs. `IndexNowBehavior` registers the hooks.
+`#[IndexNow]` is repeatable: one attribute per family of public URLs. `IndexNowBehavior` registers the hooks. Save the
+example as `models/Post.php` under `namespace app\models;` — it reads the columns `slug`, `title`, `body`, `published`,
+`amp` (the AMP page exists while it is true) and `category_id`; `Category` is a record of your own with its own
+`#[IndexNow]` rule (drop the `via: 'category'` line if you have none).
 
 <!-- test: quickstart-model -->
 ```php
@@ -192,7 +201,7 @@ languages: [docs/multi-domain.md](docs/multi-domain.md). Testing your integratio
 ## Debugging
 
 `php yii indexnow/check` validates the options, fetches the key file and reports how submissions are wired (queue,
-cache, pretty URLs, ActiveRecord hooks, sitemap spool); `php yii indexnow/explain app\models\Post 1` shows the
+cache, pretty URLs, ActiveRecord hooks, sitemap spool); `php yii indexnow/explain 'app\models\Post' 1` shows the
 rules, guards and URLs of one record without sending anything; the `indexnow` log category at `debug` tells why a
 URL was or was not submitted. Symptoms and fixes: [docs/troubleshooting.md](docs/troubleshooting.md).
 
@@ -229,7 +238,7 @@ use IndexNowKit\Yii2\ActiveRecord\IndexNowBehavior;
 final class Post extends ActiveRecord { public function behaviors(): array { return [IndexNowBehavior::class]; } }
 ```
 
-- Verify: `php yii indexnow/check` (exit 1 on any error), `php yii indexnow/explain app\\models\\Post 1` (why a URL was or was not produced), `php yii indexnow/submit-record app\\models\\Post 1 --dry-run`.
+- Verify: `php yii indexnow/check` (exit 1 on any error), `php yii indexnow/explain 'app\\models\\Post' 1` (why a URL was or was not produced), `php yii indexnow/submit-record 'app\\models\\Post' 1 --dry-run`.
 - Pitfalls:
   - `dispatch: auto` exists in Symfony (`auto` | `messenger` | `sync` | `none`) and Yii2 (`auto` | `queue` | `sync` | `none`), **not** in Laravel (`queue` | `sync` | `none`).
   - Locales: `router.locales` in Laravel, `router.languages` in Yii2, `framework.enabled_locales` in Symfony; `locales: 'all'` on a rule uses that list.
