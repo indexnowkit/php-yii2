@@ -141,6 +141,15 @@ Classes you cannot annotate: `'active_record' => ['models' => [Product::class]]`
 Full model, typed parameters, inheritance and the semantics table:
 [core attribute reference](https://github.com/indexnowkit/php/blob/main/packages/core/docs/attribute-reference.md).
 
+## Verify
+
+```bash
+php yii indexnow/check          # config, key file reachable, engines, queue component, cache component, spool
+php yii indexnow/check --live   # also sends a real probe request to every engine
+```
+
+Run it after every key rotation and after every deployment that touches the configuration.
+
 ## How it works
 
 - URLs are resolved **in the ActiveRecord event**, while the old state is live (`changedAttributes` on
@@ -167,7 +176,7 @@ Full model, typed parameters, inheritance and the semantics table:
 | `indexnow/submit-record <class> [ids...]` | `--event=` · `--limit=` · `--explain` · `--force` · `--dry-run` · `--json` |
 | `indexnow/explain <class> <id>` | `--event=` — rules, `when`, URLs, key, debounce; sends nothing |
 | `indexnow/sitemap [sitemap]` | `--changed-since="1 day"` · `--allow-foreign-hosts` · `--force` · `--dry-run` · `--json` · `--no-verify` |
-| `indexnow/history` | `--host=` · `--status=ok|failed|skipped|pending` · `--url=` · `--since=2h|3d|2026-09-01` · `--limit=` (default 50) · `--json` · `--purge[=days]` |
+| `indexnow/history` | `--host=` · `--status=ok|pending|failed|skipped` · `--url=` · `--since=2h|3d|2026-09-01` · `--limit=` (default 50) · `--json` · `--purge[=days]` |
 | `indexnow/status` | `--json` |
 | `indexnow/key-generate` | `--length` · `--alphanumeric` · `--write-env[=FILE]` · `--force` rotate |
 
@@ -256,7 +265,7 @@ break is listed under "Changed" in [CHANGELOG.md](CHANGELOG.md). Yii 2.0.45+, PH
 
 ## Notes for AI assistants
 
-- Composer package `indexnowkit/yii2` (Yii 2.0.45+, on `indexnowkit/core`); the `sitemap` command needs `indexnowkit/sitemap`; pre-flight checks need `indexnowkit/verify`; `indexnow/history` / `indexnow/status` need `indexnowkit/history` (`history.store: psr16|pdo`). Configuration: the `indexnow` application component (`options` array), `'bootstrap' => ['indexnow']`.
+- Composer package `indexnowkit/yii2` (Yii 2.0.45+, on `indexnowkit/core`); the `indexnow/sitemap` command needs `indexnowkit/sitemap`; pre-flight checks need `indexnowkit/verify`; `indexnow/history` / `indexnow/status` need `indexnowkit/history` (`history.store: psr16|pdo`). Configuration: the `indexnow` application component (`options` array), `'bootstrap' => ['indexnow']`. `php yii indexnow/key-generate --write-env` writes a fresh `INDEXNOW_KEY`; `php yii indexnow/submit <url>…` submits URLs by hand, `php yii indexnow/explain <Record> <id>` shows why a URL is or is not produced.
 - Minimal complete snippet (every `use` included):
 
 ```php

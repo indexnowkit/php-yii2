@@ -8,6 +8,7 @@ use DateInterval;
 use IndexNowKit\Yii2\Cache\Psr16Cache;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 use yii\caching\ArrayCache;
 
 final class Psr16CacheTest extends TestCase
@@ -37,10 +38,27 @@ final class Psr16CacheTest extends TestCase
 
     public function testExpiredEntriesAreGone(): void
     {
-        $cache = new Psr16Cache(new ArrayCache());
+        $inner = new ArrayCache();
+        $cache = new Psr16Cache($inner);
         $cache->set('a', 1, 1);
         self::assertSame(1, $cache->get('a'));
-        sleep(2);
+        // ArrayCache stores [value, expiry as microtime(true)]: move the expiry into the past instead of sleeping through it.
+        $items = (new ReflectionProperty(ArrayCache::class, '_cache'))->getValue($inner);
+        self::assertIsArray($items);
+        foreach ($items as $key => $item) {
+            $items[$key] = [$item[0], 1.0];
+        }
+        (new ReflectionProperty(ArrayCache::class, '_cache'))->setValue($inner, $items);
         self::assertNull($cache->get('a'));
+    }
+
+    public function testFalseIsAValueAndKeysAreValidated(): void
+    {
+        $cache = new Psr16Cache(new ArrayCache());
+        $cache->set('f', false);
+        self::assertFalse($cache->get('f', 'default'), 'a stored false is not a miss');
+        self::assertSame(['f' => false, 'missing' => 'd'], iterator_to_array($cache->getMultiple(['f', 'missing'], 'd')));
+        $this->expectException(\Psr\SimpleCache\InvalidArgumentException::class);
+        $cache->get('a:b');
     }
 }

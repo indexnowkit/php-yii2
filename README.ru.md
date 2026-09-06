@@ -135,6 +135,15 @@ Accessor'ы читают атрибуты и отношения AR (`category.sl
 
 Полная модель атрибута: [справочник core](https://github.com/indexnowkit/php/blob/main/packages/core/docs/attribute-reference.ru.md).
 
+## Проверьте
+
+```bash
+php yii indexnow/check          # конфигурация, доступность key-файла, движки, компонент очереди, компонент кэша, спул
+php yii indexnow/check --live   # плюс реальный пробный запрос к каждому движку
+```
+
+Запускайте после каждой ротации ключа и после каждого деплоя, меняющего конфигурацию.
+
 ## Как это работает
 
 - URL резолвятся **в событии ActiveRecord**, пока живо старое состояние (`changedAttributes` в `afterUpdate`, строка и
@@ -160,7 +169,7 @@ Accessor'ы читают атрибуты и отношения AR (`category.sl
 | `indexnow/submit-record <class> [ids...]` | `--event=` · `--limit=` · `--explain` · `--force` · `--dry-run` · `--json` |
 | `indexnow/explain <class> <id>` | `--event=` — правила, `when`, URL, ключ, дебаунс; ничего не отправляет |
 | `indexnow/sitemap [sitemap]` | `--changed-since="1 day"` · `--allow-foreign-hosts` · `--force` · `--dry-run` · `--json` · `--no-verify` |
-| `indexnow/history` | `--host=` · `--status=ok|failed|skipped|pending` · `--url=` · `--since=2h|3d|2026-09-01` · `--limit=` (по умолчанию 50) · `--json` · `--purge[=days]` |
+| `indexnow/history` | `--host=` · `--status=ok|pending|failed|skipped` · `--url=` · `--since=2h|3d|2026-09-01` · `--limit=` (по умолчанию 50) · `--json` · `--purge[=days]` |
 | `indexnow/status` | `--json` |
 | `indexnow/key-generate` | `--length` · `--alphanumeric` · `--write-env[=FILE]` · `--force` ротация |
 
@@ -246,7 +255,7 @@ flush. `psr16` — кольцевой буфер из `history.limit` запис
 
 ## Заметки для AI-ассистентов
 
-- Composer-пакет `indexnowkit/yii2` (Yii 2.0.45+, поверх `indexnowkit/core`); команда `sitemap` требует `indexnowkit/sitemap`; предпроверка страниц — `indexnowkit/verify`; `indexnow/history` / `indexnow/status` — `indexnowkit/history` (`history.store: psr16|pdo`). Конфигурация: компонент приложения `indexnow` (массив `options`), `'bootstrap' => ['indexnow']`.
+- Composer-пакет `indexnowkit/yii2` (Yii 2.0.45+, поверх `indexnowkit/core`); команда `indexnow/sitemap` требует `indexnowkit/sitemap`; предпроверка страниц — `indexnowkit/verify`; `indexnow/history` / `indexnow/status` — `indexnowkit/history` (`history.store: psr16|pdo`). Конфигурация: компонент приложения `indexnow` (массив `options`), `'bootstrap' => ['indexnow']`. `php yii indexnow/key-generate --write-env` записывает новый `INDEXNOW_KEY`; `php yii indexnow/submit <url>…` отправляет URL вручную, `php yii indexnow/explain <Record> <id>` объясняет, почему URL есть или нет.
 - Минимальный полный сниппет (все `use` на месте):
 
 ```php

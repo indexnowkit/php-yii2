@@ -3,6 +3,20 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.11.0] — Unreleased
+
+### Changed
+
+- **`Queue\QueueDispatcher` pushes one job per `batch.max_urls` URLs**: a bulk import was one job a queue payload limit
+  rejected, and every URL was lost with one log line.
+- **`Cache\Psr16Cache`** keeps a stored `false` apart from a miss (an envelope around the value: entries written by 0.10
+  read as misses once, then are rewritten) and throws the PSR-16 `InvalidArgumentException` (`Cache\InvalidKey`) for a
+  key with reserved characters or over 64 characters.
+- `check` gets `verify.transport`; the `verify.dispatch` line comes from `Verify\Check\DispatchCheck`.
+- README: a "Verify" step (`php yii indexnow/check`) after the model declaration, as the other adapters have.
+- `psr/log ^1.1` is gone from the constraint (the core requires `^2 || ^3`).
+- Requires `indexnowkit/core ^0.11`, `indexnowkit/console ^0.4`; tests against `verify ^0.2`, `history ^0.2`, `sitemap ^0.6`.
+
 ## [0.10.0] — 2026-09-06
 
 ### Added

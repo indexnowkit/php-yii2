@@ -10,12 +10,13 @@ use IndexNowKit\Adapter\Services;
 use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Check\CheckInterface;
 use IndexNowKit\Check\CheckLevel;
-use IndexNowKit\Check\CheckReport;
 use IndexNowKit\Check\StaticCheck;
 use IndexNowKit\Http\TransportFactory;
 use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\SubmitterInterface;
+use IndexNowKit\Verify\Check\DispatchCheck;
 use IndexNowKit\Verify\Check\SampleCheck;
+use IndexNowKit\Verify\Check\TransportCheck;
 use IndexNowKit\Verify\PageSignals;
 use IndexNowKit\Verify\RobotsCache;
 use IndexNowKit\Verify\VerifyConfig;
@@ -66,7 +67,7 @@ final class VerifyServices
     /** The pre-flight transport: `verify.timeout`, `verify.user_agent`, the application's `http.client`. */
     public static function transport(VerifyConfig $verify, Services $services, Closure $clientLocator): TransportInterface
     {
-        return TransportFactory::lazy($verify->transportConfig($services->config), $clientLocator, ['User-Agent' => $verify->userAgent()]);
+        return TransportFactory::lazy($verify->transportConfig($services->config), $clientLocator, ['User-Agent' => $verify->userAgent()], VerifyConfig::BODY_LIMIT);
     }
 
     public static function robots(VerifyConfig $verify, Services $services, TransportInterface $transport): RobotsCache
@@ -101,16 +102,8 @@ final class VerifyServices
 
         return [
             new StaticCheck(CheckLevel::Ok, $line, self::package(true)->checkCode()),
-            new class ($warn) implements CheckInterface {
-                public function __construct(private readonly bool $warn) {}
-
-                public function check(CheckReport $report): void
-                {
-                    if ($this->warn) {
-                        $report->warning('verify: verify.enabled with dispatch: sync fetches your own pages inside the web request; use dispatch: queue', 'verify.dispatch');
-                    }
-                }
-            },
+            new DispatchCheck($warn, 'queue'),
+            new TransportCheck($verify->enabled, $services->config->httpClient),
             new VerifySampleCheck($samples, static function (array $urls, array $classes) use ($samples, $transport, $verify, $services, $robots): CheckInterface {
                 /** @var list<string> $urls */
                 /** @var list<string> $classes */
