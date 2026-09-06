@@ -7,9 +7,9 @@ namespace IndexNowKit\Yii2\Config;
 use IndexNowKit\Adapter\ConfigFactory as CoreConfigFactory;
 use IndexNowKit\Config;
 use IndexNowKit\Exception\ConfigurationException;
-use IndexNowKit\Yii2\History\HistoryServices;
-use IndexNowKit\Yii2\Sitemap\SitemapServices;
-use IndexNowKit\Yii2\Verify\VerifyServices;
+use IndexNowKit\History\Adapter\HistoryServices;
+use IndexNowKit\Sitemap\Adapter\SitemapServices;
+use IndexNowKit\Verify\Adapter\VerifyServices;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 

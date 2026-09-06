@@ -13,13 +13,17 @@ use IndexNowKit\Debounce\DebounceStoreFactory;
 use IndexNowKit\Debounce\DebounceStoreInterface;
 use IndexNowKit\Dispatch\DispatcherInterface;
 use IndexNowKit\Exception\ConfigurationException;
+use IndexNowKit\History\Adapter\HistoryServices;
+use IndexNowKit\History\HistoryConfig;
 use IndexNowKit\Http\TransportInterface;
+use IndexNowKit\Sitemap\Adapter\SitemapServices;
 use IndexNowKit\Submission\SubmissionStoreInterface;
 use IndexNowKit\Submitter;
 use IndexNowKit\SubmitterInterface;
 use IndexNowKit\Url\ArrayResolverLocator;
 use IndexNowKit\Url\RouteUrlResolverInterface;
 use IndexNowKit\Url\UrlResolverInterface;
+use IndexNowKit\Verify\Adapter\VerifyServices;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordSubjectReader;
 use IndexNowKit\Yii2\Cache\Psr16Cache;
 use IndexNowKit\Yii2\Check\ActiveRecordCheck;
@@ -28,16 +32,15 @@ use IndexNowKit\Yii2\Check\QueueCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
 use IndexNowKit\Yii2\Check\VerifySampleCheck;
 use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
-use IndexNowKit\Yii2\History\HistoryServices;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
-use IndexNowKit\Yii2\Sitemap\SitemapServices;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
-use IndexNowKit\Yii2\Verify\VerifyServices;
+use PDO;
 use Psr\SimpleCache\CacheInterface as Psr16;
 use Throwable;
 use Yii;
 use yii\base\InvalidConfigException;
 use yii\caching\CacheInterface;
+use yii\db\Connection;
 use yii\di\Instance;
 use yii\queue\Queue;
 
@@ -63,13 +66,12 @@ final class Wiring
         $builder->events($component->events()); // every Result raises IndexNowComponent::EVENT_RESULT
         if ($component->verifyEnabled()) {
             // The pre-flight decorator around the default submitter of the graph: sync flushes and yii2-queue jobs verify.
-            $builder->submitter(static fn(Services $s): SubmitterInterface => VerifyServices::submitter(
+            $builder->submitter(static fn(Services $s): SubmitterInterface => VerifyServices::submitterFor(
                 new Submitter($s->client(), $s->config, $s->debounceStore(), $s->logger, $s->normalizer(), $component->events(), $s->submissionStore()),
                 $component->verifyConfig(),
                 $s,
                 $component->verifyTransport(),
                 $component->robots(),
-                $component->events(),
                 $s->config->dispatch === 'sync' && Yii::$app instanceof \yii\web\Application,
             ));
         }
@@ -89,7 +91,7 @@ final class Wiring
             $builder->submissionStore(static fn(): SubmissionStoreInterface => References::ensure(References::reference($component->submissionStore), SubmissionStoreInterface::class));
         } elseif ($component->historyEnabled()) {
             // The store of `history.store` (indexnowkit/history): the submitter, the queue job, the commands and the verify decorator record into it.
-            $builder->submissionStore(static fn(Services $s): SubmissionStoreInterface => HistoryServices::store($component->historyConfig(), $s) ?? throw new InvalidConfigException('indexnow: history.store is set but no store was built.'));
+            $builder->submissionStore(static fn(Services $s): SubmissionStoreInterface => self::historyStore($component->historyConfig(), $s));
         }
         if ($component->dispatcher !== null) {
             $builder->dispatcher(static fn(): DispatcherInterface => References::ensure(References::reference($component->dispatcher), DispatcherInterface::class));
@@ -122,10 +124,10 @@ final class Wiring
             new ActiveRecordCheck($component->activeRecordEnabled(), $component->modelClasses()),
             $component->sitemapInstalled() ? SitemapServices::spoolCheck($component->sitemapConfig()) : $component->sitemapPackage()->check($component->block('sitemap')),
             ...$component->verifyInstalled()
-                ? VerifyServices::checks($component->verifyConfig(), $services, $component->verifyTransport(), $component->robots(), $component->samples)
+                ? VerifyServices::checksFor($component->verifyConfig(), $services, 'queue', new VerifySampleCheck($component->samples, VerifyServices::sampleCheck($component->verifyTransport(), $component->verifyConfig(), $services->normalizer(), $services->keys(), $component->samples->sampler, $component->robots())))
                 : [new VerifySampleCheck($component->samples, null, $component->verifyPackage()->checkLine($component->block('verify')), $component->verifyPackage()->checkLevel($component->block('verify')))],
             ...$component->historyInstalled()
-                ? HistoryServices::checks($component->historyConfig(), $services)
+                ? HistoryServices::checksFor($component->historyConfig(), $services)
                 : [$component->historyPackage()->check($component->block('history'))],
         ];
         foreach ($component->checks as $check) {
@@ -155,6 +157,32 @@ final class Wiring
         }
 
         return $queue;
+    }
+
+    /**
+     * The store of `history.store` (indexnowkit/history): `pdo` over the PDO of the `db` component named by
+     * `history.pdo.service` (default `db`) or a PDO built from `history.pdo.dsn`; `psr16` over the cache component of
+     * `debounce.store` (the `cache` component with `memory`/`none`) through the package's PSR-16 bridge.
+     */
+    private static function historyStore(HistoryConfig $history, Services $services): SubmissionStoreInterface
+    {
+        if ($history->store === HistoryConfig::STORE_PDO) {
+            if ($history->pdoDsn !== null) {
+                return HistoryServices::pdoStore(HistoryServices::pdoFromDsn($history->pdoDsn), $history);
+            }
+            $connection = Instance::ensure($history->pdoService ?? 'db', Connection::class);
+            \assert($connection instanceof Connection);
+            $pdo = $connection->getMasterPdo();
+            \assert($pdo instanceof PDO);
+
+            return HistoryServices::pdoStore($pdo, $history);
+        }
+        if ($history->store !== HistoryConfig::STORE_PSR16) {
+            throw new InvalidConfigException('indexnow: history.store is set but no store was built.');
+        }
+        $cache = HistoryServices::debounceCacheId($services->config) ?? IndexNowComponent::DEFAULT_DEBOUNCE_STORE;
+
+        return HistoryServices::psr16Store(new Psr16Cache(Instance::ensure($cache, CacheInterface::class)), $history, $services->config);
     }
 
     /** The deprecated spellings of the `router` block (before 0.12.0 the adapter said "language" where the core says "locale"). */

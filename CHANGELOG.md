@@ -3,6 +3,17 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.13.0] — Unreleased
+
+### Changed
+
+- **The optional packages wire themselves**: `Yii2\Verify\VerifyServices`, `Yii2\History\HistoryServices` and
+  `Yii2\Sitemap\SitemapServices` are removed; the component, `Wiring` and the console actions call
+  `Verify\Adapter\VerifyServices`, `History\Adapter\HistoryServices` and `Sitemap\Adapter\SitemapServices` of the
+  packages (verify 0.3, history 0.3, sitemap 0.7 — `conflict` with older ones). What stays here is Yii's: the `db`
+  connection and the cache component behind a store, the queue facts of `status`, the sample check over Active Record.
+- Requires `indexnowkit/verify ^0.3`, `indexnowkit/history ^0.3`, `indexnowkit/sitemap ^0.7` when installed.
+
 ## [0.12.0] — 2026-09-07
 
 ### Changed

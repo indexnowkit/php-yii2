@@ -8,9 +8,9 @@ use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Console\CommandDefinition;
 use IndexNowKit\Console\ExitCode;
 use IndexNowKit\Console\ResultFormatterInterface;
+use IndexNowKit\Sitemap\Adapter\SitemapServices;
 use IndexNowKit\Sitemap\Console\Definitions;
 use IndexNowKit\Sitemap\Console\SitemapOptions;
-use IndexNowKit\Sitemap\Console\SitemapRunner;
 use IndexNowKit\Yii2\IndexNowComponent;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -34,7 +34,7 @@ final class SitemapAction
 
             return ExitCode::INVALID;
         }
-        $runner = new SitemapRunner($component->kit(), $component->sitemapSource(), $submitters, $config->url, $formatter, sitemapUrlOption: 'sitemap.url', unverifiedSubmitters: $component->unverifiedSubmitterFactory());
+        $runner = SitemapServices::runner($component->kit(), $component->sitemapSource(), $submitters, $config, $formatter, 'sitemap.url', $component->unverifiedSubmitterFactory());
 
         return $runner->run($io, new SitemapOptions($sitemap, $changedSince, $allowForeignHosts, $force, $dryRun, $json, $noVerify));
     }

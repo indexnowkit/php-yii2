@@ -17,12 +17,14 @@ use IndexNowKit\Config;
 use IndexNowKit\Debounce\DebounceStoreInterface;
 use IndexNowKit\Dispatch\DispatcherInterface;
 use IndexNowKit\Event;
+use IndexNowKit\History\Adapter\HistoryServices;
 use IndexNowKit\History\HistoryConfig;
 use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\IndexNowKit;
 use IndexNowKit\Key\KeyFileResponder;
 use IndexNowKit\Key\KeyProviderInterface;
 use IndexNowKit\Result;
+use IndexNowKit\Sitemap\Adapter\SitemapServices;
 use IndexNowKit\Sitemap\SitemapConfig;
 use IndexNowKit\Sitemap\SitemapSourceInterface;
 use IndexNowKit\Submission\SubmissionStoreInterface;
@@ -34,6 +36,7 @@ use IndexNowKit\Url\ResolvedUrl;
 use IndexNowKit\Url\RouteUrlResolverInterface;
 use IndexNowKit\Url\UrlNormalizerInterface;
 use IndexNowKit\Url\UrlResolverInterface;
+use IndexNowKit\Verify\Adapter\VerifyServices;
 use IndexNowKit\Verify\RobotsCache;
 use IndexNowKit\Verify\VerifyConfig;
 use IndexNowKit\Yii2\ActiveRecord\IndexNowObserver;
@@ -41,11 +44,8 @@ use IndexNowKit\Yii2\Check\SampleOptions;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\Console\IndexNowController;
 use IndexNowKit\Yii2\Event\ResultDispatcher;
-use IndexNowKit\Yii2\History\HistoryServices;
 use IndexNowKit\Yii2\Http\KeyFileController;
 use IndexNowKit\Yii2\Log\YiiLogger;
-use IndexNowKit\Yii2\Sitemap\SitemapServices;
-use IndexNowKit\Yii2\Verify\VerifyServices;
 use LogicException;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface as Psr16;
@@ -71,9 +71,9 @@ use yii\web\UrlManager;
  *
  * Every core piece is replaceable through a property (`transport`, `debounceStore`, `dispatcher`, `urlResolver`,
  * `logger`, `checks`), given as an instance, a class name or a component id (`Instance::ensure`). The sitemap
- * pieces come from `Sitemap\SitemapServices` when the optional `indexnowkit/sitemap` is installed
+ * pieces come from the package's `Sitemap\Adapter\SitemapServices` when the optional `indexnowkit/sitemap` is installed
  * (`Adapter\OptionalPackage`, {@see sitemapPackage()}); without it `indexnow/sitemap` prints one sentence and
- * `indexnow/check` one line. The same for `Verify\VerifyServices` ({@see verifyPackage()}) and `History\HistoryServices`
+ * `indexnow/check` one line. The same for `Verify\Adapter\VerifyServices` ({@see verifyPackage()}) and `History\Adapter\HistoryServices`
  * ({@see historyPackage()}: the submission store of `history.store`, `indexnow/history`, `indexnow/status`).
  */
 final class IndexNowComponent extends Component implements BootstrapInterface
@@ -326,7 +326,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     {
         $this->requireSitemap();
 
-        return $this->sitemapConfig ??= SitemapServices::config($this->block('sitemap'), $this->logger());
+        return $this->sitemapConfig ??= SitemapServices::config($this->block('sitemap'), $this->logger(), 'php yii indexnow/check');
     }
 
     /**
@@ -380,7 +380,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     {
         $this->requireVerify();
 
-        return $this->verifyConfig ??= VerifyServices::config($this->block('verify'), $this->logger());
+        return $this->verifyConfig ??= VerifyServices::config($this->block('verify'), $this->logger(), 'php yii indexnow/check');
     }
 
     /** Whether the graph submits through the pre-flight: the package is installed and `verify.enabled` is on. */
@@ -401,7 +401,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         if ($this->verifyTransportInstance === null) {
             $this->verifyTransportInstance = $this->verifyTransport !== null
                 ? References::ensure(References::reference($this->verifyTransport), TransportInterface::class)
-                : VerifyServices::transport($this->verifyConfig(), $this->services(), static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
+                : VerifyServices::transportFor($this->verifyConfig(), $this->services(), static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
         }
 
         return $this->verifyTransportInstance;
@@ -414,7 +414,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     {
         $this->requireVerify();
 
-        return $this->robots ??= VerifyServices::robots($this->verifyConfig(), $this->services(), $this->verifyTransport());
+        return $this->robots ??= VerifyServices::robotsFor($this->verifyConfig(), $this->services(), $this->verifyTransport());
     }
 
     /**
@@ -425,7 +425,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     {
         if ($this->submitterFactory === null) {
             $plain = $this->unverifiedSubmitterFactory();
-            $this->submitterFactory = $this->verifyEnabled() ? VerifyServices::submitterFactory($plain, $this->verifyConfig(), $this->services(), $this->verifyTransport(), $this->robots(), $this->events()) : $plain;
+            $this->submitterFactory = $this->verifyEnabled() ? VerifyServices::submitterFactoryFor($plain, $this->verifyConfig(), $this->services(), $this->verifyTransport(), $this->robots()) : $plain;
         }
 
         return $this->submitterFactory;
@@ -474,7 +474,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
             throw new LogicException($this->historyPackage()->notInstalledMessage());
         }
 
-        return $this->historyConfig ??= HistoryServices::config($this->block('history'), $this->logger());
+        return $this->historyConfig ??= HistoryServices::config($this->block('history'), $this->logger(), 'php yii indexnow/check');
     }
 
     /** Whether the graph records into a store of indexnowkit/history: the package is installed, `history.store` is set and no `submissionStore` property overrides it. */

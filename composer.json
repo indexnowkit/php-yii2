@@ -40,10 +40,10 @@
         "yiisoft/yii2-composer": "^2.0.10"
     },
     "require-dev": {
-        "indexnowkit/history": "^0.2",
-        "indexnowkit/sitemap": "^0.6",
+        "indexnowkit/history": "^0.3",
+        "indexnowkit/sitemap": "^0.7",
         "indexnowkit/testing": "^0.3",
-        "indexnowkit/verify": "^0.2",
+        "indexnowkit/verify": "^0.3",
         "phpstan/phpstan": "^2.2.13",
         "phpstan/phpstan-strict-rules": "^2.0.12",
         "phpunit/phpunit": "^11.5",
@@ -51,10 +51,15 @@
         "yidas/yii2-composer-bower-skip": "^2.0",
         "yiisoft/yii2-queue": "^2.3"
     },
+    "conflict": {
+        "indexnowkit/history": "<0.3",
+        "indexnowkit/sitemap": "<0.7",
+        "indexnowkit/verify": "<0.3"
+    },
     "suggest": {
-        "indexnowkit/sitemap": "The indexnow/sitemap command (^0.6)",
-        "indexnowkit/verify": "Pre-flight GET of every URL before submission — noindex, robots.txt, canonical, redirects (^0.2; verify.enabled: true)",
-        "indexnowkit/history": "Submission history in a cache component or a database table, the indexnow/history and indexnow/status commands (^0.2; history.store: psr16|pdo)",
+        "indexnowkit/sitemap": "The indexnow/sitemap command (^0.7)",
+        "indexnowkit/verify": "Pre-flight GET of every URL before submission — noindex, robots.txt, canonical, redirects (^0.3; verify.enabled: true)",
+        "indexnowkit/history": "Submission history in a cache component or a database table, the indexnow/history and indexnow/status commands (^0.3; history.store: psr16|pdo)",
         "yiisoft/yii2-queue": "dispatch: queue — SubmitUrlsJob with retries in a worker",
         "symfony/http-client": "PSR-18 client for the submissions (with nyholm/psr7); any PSR-18 client works",
         "nyholm/psr7": "PSR-17 factories for the PSR-18 client"
@@ -84,7 +89,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "0.12.x-dev"
+            "dev-main": "0.13.x-dev"
         }
     }
 }
