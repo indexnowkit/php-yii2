@@ -9,7 +9,6 @@ use IndexNowKit\Adapter\Services;
 use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Attribute\IndexNow;
 use IndexNowKit\Attribute\IndexNowDefaults;
-use IndexNowKit\Attribute\ParamExtractor;
 use IndexNowKit\Attribute\RuleRegistry;
 use IndexNowKit\Check\CheckerInterface;
 use IndexNowKit\Check\CheckInterface;
@@ -37,7 +36,6 @@ use IndexNowKit\Url\UrlNormalizerInterface;
 use IndexNowKit\Url\UrlResolverInterface;
 use IndexNowKit\Verify\RobotsCache;
 use IndexNowKit\Verify\VerifyConfig;
-use IndexNowKit\Yii2\ActiveRecord\ActiveRecordSubjectReader;
 use IndexNowKit\Yii2\ActiveRecord\IndexNowObserver;
 use IndexNowKit\Yii2\Check\SampleOptions;
 use IndexNowKit\Yii2\Config\ConfigFactory;
@@ -136,7 +134,6 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     /** The `--sample` / `--sample-class` values of the running `indexnow/check` ({@see Check\SampleOptions}); the controller fills them. */
     public SampleOptions $samples;
 
-    private static bool $readerRegistered = false;
 
     private ?Config $config = null;
     private ?LoggerInterface $psrLogger = null;
@@ -156,10 +153,6 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     {
         parent::init();
         $this->samples = new SampleOptions();
-        if (!self::$readerRegistered) {
-            ParamExtractor::registerReader(new ActiveRecordSubjectReader());
-            self::$readerRegistered = true;
-        }
     }
 
     /**

@@ -6,6 +6,7 @@ namespace IndexNowKit\Yii2;
 
 use IndexNowKit\Adapter\Services;
 use IndexNowKit\Adapter\ServicesBuilder;
+use IndexNowKit\Attribute\ParamExtractor;
 use IndexNowKit\Check\CheckInterface;
 use IndexNowKit\Check\DebounceStoreCheck;
 use IndexNowKit\Debounce\DebounceStoreFactory;
@@ -19,6 +20,7 @@ use IndexNowKit\SubmitterInterface;
 use IndexNowKit\Url\ArrayResolverLocator;
 use IndexNowKit\Url\RouteUrlResolverInterface;
 use IndexNowKit\Url\UrlResolverInterface;
+use IndexNowKit\Yii2\ActiveRecord\ActiveRecordSubjectReader;
 use IndexNowKit\Yii2\Cache\Psr16Cache;
 use IndexNowKit\Yii2\Check\ActiveRecordCheck;
 use IndexNowKit\Yii2\Check\CacheProbe;
@@ -93,6 +95,8 @@ final class Wiring
             $builder->dispatcher(static fn(): DispatcherInterface => References::ensure(References::reference($component->dispatcher), DispatcherInterface::class));
         }
         $builder->queueFactory(fn(Services $s): DispatcherInterface => $this->queueDispatcher($s));
+        // How `params` and `when` are read off records: attributes and relations through Active Record, the rest through the core DSL.
+        $builder->paramExtractor(static fn(): ParamExtractor => new ParamExtractor(new ActiveRecordSubjectReader()));
         $builder->router(fn(Services $s): RouteUrlResolverInterface => $this->router($s));
         $builder->resolverLocator(static fn(): ArrayResolverLocator => new ArrayResolverLocator([], locate: self::locateResolver(...), hint: 'a component, a container definition'));
         if ($component->urlResolver !== null) {

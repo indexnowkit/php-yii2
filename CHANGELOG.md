@@ -3,6 +3,18 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.10.0] — Unreleased
+
+### Added
+
+- The `paramExtractor` node of the component's graph: `new ParamExtractor(new ActiveRecordSubjectReader())`, shared by the
+  resolver, the change handler, the facade and `indexnow/explain` (`Adapter\ServicesBuilder::paramExtractor()`).
+
+### Changed
+
+- Requires `indexnowkit/core ^0.10`; the component no longer registers the reader through the removed static
+  `ParamExtractor::registerReader()` (the same accessors resolve the same way; the process-wide flag is gone).
+
 ## [0.9.0] — 2026-09-06
 
 ### Added
