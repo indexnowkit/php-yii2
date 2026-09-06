@@ -3,6 +3,24 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
+## [0.12.0] — Unreleased
+
+### Changed
+
+- **The `router` block speaks the core's vocabulary**: `router.locales`, `router.locale_parameter`, `router.set_app_locale`
+  (what the attribute calls `locales`, what `ResolvedUrl::$locale` and `locale_hosts` are, and what the Laravel adapter has
+  always used). The pre-0.12 spellings `router.languages`, `router.language_parameter` and `router.set_app_language` are
+  still read, each with a deprecation warning in the log naming the new key; they go in the next minor. The default GET
+  parameter stays `language` (the Yii convention).
+- **Console output goes through `Controller::stdout()`**: the runners wrote to `php://stdout` directly through a
+  `ConsoleOutput`, past `--color`, `isColorEnabled()` and any controller that redirects or captures `stdout()`. The
+  default output is now `Console\ControllerOutput` (a symfony/console `Output` over the controller: decorated exactly
+  when Yii would colour, every write through `stdout()`); an injected `$output` (tests) is untouched. symfony/console
+  stays a requirement: the runners of indexnowkit/console are written against its `OutputInterface`, as Laravel's and
+  Yii3's consoles are.
+- `IndexNowComponent::submitRecords()` delegates to `IndexNowKit::submitEntities()` (core 0.12.0).
+- Requires `indexnowkit/core ^0.12`.
+
 ## [0.11.0] — 2026-09-07
 
 ### Changed

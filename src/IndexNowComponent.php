@@ -537,7 +537,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
      */
     public function submitRecords(iterable $records, Event $event = Event::Updated): array
     {
-        return $this->kit()->submitAll($records, $event);
+        return $this->kit()->submitEntities($records, $event);
     }
 
     /**

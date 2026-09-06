@@ -37,7 +37,7 @@ final class Fixtures
             'dispatch' => 'sync',
             'dry_run' => false, // explicit: YII_ENV "test" is not production, an unset dry_run fails check
             'debounce' => ['per_url' => 0, 'store' => 'memory'],
-            'router' => ['languages' => ['en', 'de']],
+            'router' => ['locales' => ['en', 'de']],
             'collector' => ['detect_leaks' => false],
             'sitemap' => ['spool' => 'memory'],
             'active_record' => ['models' => [ModelPost::class]],

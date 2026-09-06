@@ -18,7 +18,7 @@ final class ConfigFactoryTest extends TestCase
     public function testDispatchAutoAndBlocks(): void
     {
         $logger = new ArrayLogger();
-        $options = ['key' => self::KEY, 'base_url' => 'https://www.example.com', 'queue' => ['component' => 'q'], 'router' => ['languages' => ['en']], 'active_record' => ['models' => []], 'key_file' => ['enabled' => false], 'debounce' => ['store' => 'memory', 'per_url' => 5], 'logging' => ['category' => 'x'], 'http' => ['client' => null], 'typo' => 1];
+        $options = ['key' => self::KEY, 'base_url' => 'https://www.example.com', 'queue' => ['component' => 'q'], 'router' => ['locales' => ['en']], 'active_record' => ['models' => []], 'key_file' => ['enabled' => false], 'debounce' => ['store' => 'memory', 'per_url' => 5], 'logging' => ['category' => 'x'], 'http' => ['client' => null], 'typo' => 1];
 
         $config = ConfigFactory::create($options, 'prod', true, $logger);
         self::assertSame('queue', $config->dispatch);

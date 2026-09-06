@@ -54,9 +54,13 @@ The full semantics of every core key, and the same table for the other adapters,
 | `key_file.enabled` | `true` | register the URL rule and controller for `/<key>.txt` |
 | `key_file.pattern` | `<key:[A-Za-z0-9-]{8,128}>.txt` | the URL rule pattern |
 | `key_file.cache_max_age` | `300` | `Cache-Control: max-age` of the key file |
-| `router.languages` | `[]` | languages generated for rules with `locales: 'all'` |
-| `router.language_parameter` | `language` | GET parameter that carries the language (added whenever a rule has a locale) |
-| `router.set_app_language` | `true` | switch `Yii::$app->language` while generating a locale's URL, restored afterwards |
+| `router.locales` | `[]` | locales generated for rules with `locales: 'all'` |
+| `router.locale_parameter` | `language` | GET parameter that carries the locale (added whenever a rule has a locale) |
+| `router.set_app_locale` | `true` | switch `Yii::$app->language` while generating a locale's URL, restored afterwards |
+
+Before 0.12.0 the three were `router.languages`, `router.language_parameter` and `router.set_app_language`; the old spellings
+are still read (with a deprecation warning in the log) until the next minor. The vocabulary is the core's: `locales` on the
+attribute, `ResolvedUrl::$locale`, `locale_hosts`.
 | `active_record.enabled` | `true` | `false` = `IndexNowBehavior` and the `models` list are inert |
 | `active_record.models` | `[]` | ActiveRecord classes hooked through class-level events (no behavior needed) |
 | `sitemap.*` | | needs `indexnowkit/sitemap` (`composer require indexnowkit/sitemap`), else the block is ignored and `indexnow/check` says so: `enabled`, `url`, `max_depth`, `max_sitemaps`, `max_bytes`, `allow_foreign_hosts`, `spool` (auto\|disk\|memory), `spool_dir`, `fetch_retries` |

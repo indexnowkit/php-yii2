@@ -157,14 +157,23 @@ final class Wiring
         return $queue;
     }
 
-    /** The URL manager bridge with the `router` block (languages, the language parameter, whether to set the app language). */
+    /** The deprecated spellings of the `router` block (before 0.12.0 the adapter said "language" where the core says "locale"). */
+    public const ROUTER_RENAMED = ['languages' => 'locales', 'language_parameter' => 'locale_parameter', 'set_app_language' => 'set_app_locale'];
+
+    /** The URL manager bridge with the `router` block (locales, the locale parameter, whether to set the app language). */
     private function router(Services $services): RouteUrlResolverInterface
     {
         $router = $this->component->block('router');
-        $languages = \is_array($router['languages'] ?? null) ? array_values(array_filter($router['languages'], 'is_string')) : [];
-        $parameter = $router['language_parameter'] ?? 'language';
+        foreach (self::ROUTER_RENAMED as $old => $new) {
+            if (\array_key_exists($old, $router)) {
+                $router[$new] ??= $router[$old];
+                $this->component->logger()->warning('indexnow: option "router.{old}" is deprecated since indexnowkit/yii2 0.12.0, rename it to "router.{new}" (the vocabulary of the core: locale); the old spelling is read until the next minor', ['old' => $old, 'new' => $new]);
+            }
+        }
+        $locales = \is_array($router['locales'] ?? null) ? array_values(array_filter($router['locales'], 'is_string')) : [];
+        $parameter = $router['locale_parameter'] ?? 'language';
 
-        return new YiiRouteUrlResolver($services->config, $languages, \is_string($parameter) && $parameter !== '' ? $parameter : 'language', (bool) ($router['set_app_language'] ?? true));
+        return new YiiRouteUrlResolver($services->config, $locales, \is_string($parameter) && $parameter !== '' ? $parameter : 'language', (bool) ($router['set_app_locale'] ?? true));
     }
 
     /** `#[IndexNow(resolver: ...)]` ids: an application component, a container definition or a class `Yii::$container` can build. */

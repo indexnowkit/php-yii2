@@ -125,7 +125,7 @@ final class Post extends ActiveRecord
 | `url` / `urls` | метод, возвращающий URL, либо литеральные URL |
 | `when` / `whenFields` | bool-атрибут или метод; черновики пропускаются, `published → draft` уходит как удаление |
 | `fields` | при обновлении отправлять только если изменился один из этих атрибутов |
-| `events`, `locales`, `host`, `name` | подмножество событий; `current`/`all`/список (`router.languages`); другой хост; стабильный id правила |
+| `events`, `locales`, `host`, `name` | подмножество событий; `current`/`all`/список (`router.locales`); другой хост; стабильный id правила |
 
 Accessor'ы читают атрибуты и отношения AR (`category.slug`), затем методы. Колонка `when`, у которой есть только дефолт
 **в базе**, на свежей записи равна null: вызовите `$this->loadDefaultValues()` в `init()` или задайте атрибут до `save()`.
@@ -271,7 +271,7 @@ final class Post extends ActiveRecord { public function behaviors(): array { ret
 - Проверка: `php yii indexnow/check` (exit 1 при любой ошибке; `--strict` падает и на предупреждениях, `--json` для машин), `php yii indexnow/config --json` (эффективная конфигурация с маскированными ключами: вставьте её в баг-репорт), `php yii indexnow/explain 'app\\models\\Post' 1` (почему URL был или не был получен), `php yii indexnow/submit-record 'app\\models\\Post' 1 --dry-run`.
 - Ловушки:
   - `dispatch: auto` есть в Symfony (`auto` | `messenger` | `sync` | `none`) и Yii2 (`auto` | `queue` | `sync` | `none`), в Laravel **нет** (`queue` | `sync` | `none`).
-  - Локали: `router.locales` в Laravel, `router.languages` в Yii2, `framework.enabled_locales` в Symfony; `locales: 'all'` у правила берёт этот список.
+  - Локали: `router.locales` в Laravel и Yii2, `framework.enabled_locales` в Symfony; `locales: 'all'` у правила берёт этот список.
   - `url:` — имя аксессора (метод или свойство), который возвращает URL; `urls:` — список литеральных URL. Литерал в `url:` не ставить.
   - Строка в `when:` — аксессор, читаемый как truthy (`published`, `isPublished`). Строка статуса требует `Equals`: `when: new Equals('status', 'published')` (`IndexNowKit\Attribute\Param\Equals`).
   - Ручная отправка: `submitEntity()` в Symfony, `submitModel()` в Laravel, `submitRecord()` в Yii2; команды — `indexnow:submit-entity`, `indexnow:submit-model`, `indexnow/submit-record`. Массовые запросы (`update()`, `DB::table()`, `updateAll()`) хуков не вызывают — отправляйте ими после.

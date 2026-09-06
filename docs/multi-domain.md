@@ -37,7 +37,7 @@ fetches every host's key file; `--host=example.de` limits it to one.
 ## Languages
 
 ```php
-'router' => ['languages' => ['en', 'de'], 'language_parameter' => 'language', 'set_app_language' => true],
+'router' => ['locales' => ['en', 'de'], 'locale_parameter' => 'language', 'set_app_locale' => true],
 'locale_hosts' => ['de' => 'example.de'],           // optional: one host per language
 ```
 
@@ -45,11 +45,11 @@ fetches every host's key file; `--host=example.de` limits it to one.
 #[IndexNow(route: 'article/view', params: ['slug' => 'slug'], locales: 'all')]
 ```
 
-- `locales: 'current'` (default) generates one URL; `'all'` one per `router.languages`; a list as given.
-- The language is passed as the `router.language_parameter` parameter, so a URL rule that declares it
+- `locales: 'current'` (default) generates one URL; `'all'` one per `router.locales`; a list as given.
+- The locale is passed as the `router.locale_parameter` parameter (`language` by default), so a URL rule that declares it
   (`'<language:(en|de)>/articles/<slug>' => 'article/view'`) puts it in the path; without such a rule it becomes a
   query parameter — declare the rule.
-- With `set_app_language`, `Yii::$app->language` is switched for the duration of the generation and restored, which
+- With `set_app_locale`, `Yii::$app->language` is switched for the duration of the generation and restored, which
   is what localized slugs and `Url::to()` helpers read.
 - With `locale_hosts`, a rule without `host` generates each language on that language's host and under that host's key.
 

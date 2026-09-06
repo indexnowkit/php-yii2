@@ -19,19 +19,19 @@ use yii\web\UrlManager;
  * - In a console application UrlManager knows no host: hostInfo and baseUrl come from `base_url` (on a clone, the
  *   component is left untouched). Inside an HTTP request the current host stays, as UrlManager generates it.
  * - A rule with `host:` is generated on `hosts.<host>.base_url`, else `https://<host>`.
- * - `$locale` is passed as the `router.language_parameter` GET parameter, and `Yii::$app->language` is switched for
- *   the duration when `router.set_app_language` is on.
+ * - `$locale` is passed as the `router.locale_parameter` GET parameter (`language` by default, the Yii convention), and
+ *   `Yii::$app->language` is switched for the duration when `router.set_app_locale` is on.
  */
 final class YiiRouteUrlResolver implements RouteUrlResolverInterface
 {
     /**
-     * @param list<string> $languages languages of `locales: 'all'` (`router.languages`)
+     * @param list<string> $locales the locales of `locales: 'all'` (`router.locales`)
      */
     public function __construct(
         private readonly Config $config,
-        private readonly array $languages = [],
-        private readonly string $languageParameter = 'language',
-        private readonly bool $setAppLanguage = true,
+        private readonly array $locales = [],
+        private readonly string $localeParameter = 'language',
+        private readonly bool $setAppLocale = true,
     ) {}
 
     public function locales(array|string $locales): array
@@ -39,8 +39,8 @@ final class YiiRouteUrlResolver implements RouteUrlResolverInterface
         if (\is_array($locales)) {
             return $locales === [] ? [null] : $locales;
         }
-        if ($locales === 'all' && $this->languages !== []) {
-            return $this->languages;
+        if ($locales === 'all' && $this->locales !== []) {
+            return $this->locales;
         }
 
         return [null];
@@ -54,12 +54,12 @@ final class YiiRouteUrlResolver implements RouteUrlResolverInterface
             }
         }
         if ($locale !== null) {
-            $params[$this->languageParameter] = $locale;
+            $params[$this->localeParameter] = $locale;
         }
         $manager = $this->urlManager();
         $previousLanguage = null;
         $app = App::current();
-        if ($locale !== null && $this->setAppLanguage && $app->language !== $locale) {
+        if ($locale !== null && $this->setAppLocale && $app->language !== $locale) {
             $previousLanguage = $app->language;
             $app->language = $locale;
         }

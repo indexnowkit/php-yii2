@@ -129,7 +129,7 @@ final class Post extends ActiveRecord
 | `url` / `urls` | a method returning the URL(s), or literal URLs |
 | `when` / `whenFields` | bool attribute or method; drafts are skipped and `published → draft` is sent as a deletion |
 | `fields` | for updates, submit only when one of these attributes changed |
-| `events`, `locales`, `host`, `name` | subset of events; `current`/`all`/list (`router.languages`); another host; stable rule id |
+| `events`, `locales`, `host`, `name` | subset of events; `current`/`all`/list (`router.locales`); another host; stable rule id |
 
 Accessors read ActiveRecord attributes and relations (`category.slug`) and fall back to methods. A `when` column
 that only has a **database** default is null on a fresh record: call `$this->loadDefaultValues()` in `init()` or set
@@ -281,7 +281,7 @@ final class Post extends ActiveRecord { public function behaviors(): array { ret
 - Verify: `php yii indexnow/check` (exit 1 on any error; `--strict` fails on warnings too, `--json` for machines), `php yii indexnow/config --json` (the effective configuration, keys masked: paste it into a bug report), `php yii indexnow/explain 'app\\models\\Post' 1` (why a URL was or was not produced), `php yii indexnow/submit-record 'app\\models\\Post' 1 --dry-run`.
 - Pitfalls:
   - `dispatch: auto` exists in Symfony (`auto` | `messenger` | `sync` | `none`) and Yii2 (`auto` | `queue` | `sync` | `none`), **not** in Laravel (`queue` | `sync` | `none`).
-  - Locales: `router.locales` in Laravel, `router.languages` in Yii2, `framework.enabled_locales` in Symfony; `locales: 'all'` on a rule uses that list.
+  - Locales: `router.locales` in Laravel and Yii2, `framework.enabled_locales` in Symfony; `locales: 'all'` on a rule uses that list.
   - `url:` names an accessor (method or property) that returns the URL; `urls:` is a list of literal URLs. Never put a literal in `url:`.
   - A string in `when:` is an accessor read as truthy (`published`, `isPublished`). A status string needs `Equals`: `when: new Equals('status', 'published')` (`IndexNowKit\Attribute\Param\Equals`).
   - Manual submission is `submitEntity()` in Symfony, `submitModel()` in Laravel, `submitRecord()` in Yii2; the commands are `indexnow:submit-entity`, `indexnow:submit-model`, `indexnow/submit-record`. Bulk queries (`update()`, `DB::table()`, `updateAll()`) fire no hooks: submit afterwards with those.

@@ -29,7 +29,8 @@ final class ConfigFactory
     public const YII_OPTIONS = [
         'queue.component', 'queue.ttr', 'queue.delay', 'queue.priority',
         'key_file.pattern',
-        'router.languages', 'router.language_parameter', 'router.set_app_language',
+        'router.locales', 'router.locale_parameter', 'router.set_app_locale',
+        'router.languages', 'router.language_parameter', 'router.set_app_language',   // deprecated spellings (0.12.0), still read
         'active_record.enabled', 'active_record.models',
         'logging.category',
     ];

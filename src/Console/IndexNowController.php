@@ -26,7 +26,6 @@ use IndexNowKit\Yii2\Check\RecordSampler;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\IndexNowComponent;
 use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Yii;
@@ -70,7 +69,7 @@ final class IndexNowController extends Controller
     /** @var list<string> namespaces a short class name is looked up in */
     public array $modelNamespaces = ['app\\models'];
 
-    /** Output the runners write to (tests inject a BufferedOutput). */
+    /** Output the runners write to; null = {@see ControllerOutput}, through `stdout()` of this controller (tests inject a BufferedOutput). */
     public ?OutputInterface $output = null;
 
     // options
@@ -368,7 +367,7 @@ final class IndexNowController extends Controller
 
     private function io(): SymfonyStyle
     {
-        $output = $this->output ??= new ConsoleOutput($this->verbosity());
+        $output = $this->output ??= new ControllerOutput($this, $this->verbosity());
 
         return new SymfonyStyle(new ArrayInput([]), $output);
     }
