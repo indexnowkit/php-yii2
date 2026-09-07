@@ -3,7 +3,7 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
-## [0.14.0] — Unreleased
+## [0.14.0] — 2026-09-08
 
 ### Removed
 
@@ -70,6 +70,8 @@ contain breaking changes, listed under "Changed".
 
 ### Fixed
 
+- **PHP 8.5 without deprecations** — `ActiveRecord\IndexNowObserver` uses the `SplObjectStorage` offset methods
+  (`attach()`/`contains()` are deprecated since 8.5). No runtime change.
 - **Fixed: the component was a fatal without `indexnowkit/sitemap`, `indexnowkit/verify` or `indexnowkit/history`**
   (`Class "IndexNowKit\Sitemap\Adapter\SitemapServices" not found` at the first configuration build):
   `Config\ConfigFactory::factory()` and `IndexNowComponent::sitemapPackage()` / `verifyPackage()` / `historyPackage()`
