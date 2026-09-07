@@ -5,8 +5,36 @@ contain breaking changes, listed under "Changed".
 
 ## [0.14.0] — Unreleased
 
+### Removed
+
+- **`Debounce\YiiCacheDebounceStore`** (wave M, spec 19 §2.9): it was the core's `Debounce\Psr16DebounceStore` written
+  once more over the Yii cache API; the component wires `new Psr16DebounceStore(new Cache\Psr16Cache($component),
+  $prefix)` for a `debounce.store` naming a cache component — the same keys, the same window. *Migration*: code that
+  constructed it does the same two lines; the class was not in docs/bc.md.
+- **`Check\RouterCheck`** and **`Check\RecordSampler`**: the `router.locales` line is the core's `Check\LocalesCheck`
+  (same code, one text for the three adapters that print it: the ok line now names the route parameter, and with an
+  empty list and no rule asking for every locale the line is not printed — it used to be an ok line), the
+  `--sample-class` sampler is `Console\SubjectSampler` of `indexnowkit/console` (the same class four adapters carried).
+
 ### Changed
 
+- **`Log\YiiLogger` throws `Psr\Log\InvalidArgumentException` on a level PSR-3 does not define** (wave M, spec 19 §3),
+  as the standard requires ("MUST throw"); it used to log the line at info. *Migration*: a call with a level of your
+  own (`$logger->log('verbose', …)`) must use one of the eight of `Psr\Log\LogLevel`.
+- **Wave M, the rest** (spec 19): `ActiveRecord\ActiveRecordLoader` extends `Console\AbstractSubjectLoader` of
+  `indexnowkit/console` (its constructor is unchanged); `Queue\QueueDispatcher` is the push onto the queue component
+  around the core's `Dispatch\BatchingDispatcher` (constructor unchanged, the log lines are the core's, the texts this
+  adapter already printed), `Queue\SubmitUrlsJob::newId()` delegates to `BatchingDispatcher::newJobId()`;
+  `Url\YiiRouteUrlResolver` decides the locale expansion, the pinned origin and the rebase through the core's
+  `Url\RouteOrigin` and takes the graph's logger as an appended optional parameter, so `locales: 'all'` over an empty
+  `router.locales` is warned about once per process (it collapsed silently); `Check\CacheProbe` writes the core's
+  `DebounceStoreCheck::PROBE_KEY` (`indexnowkit_check`, no colon: PSR-16 reserves it) where it wrote `indexnowkit:check`;
+  `indexnow/status` describes the debounce store through `History\Adapter\HistoryServices::describeStore()` (the same
+  `<id> (<Class>)` line as before, shared with Laravel and Yii3); `indexnow/sitemap` leaves `sitemap.enabled: false`
+  to the runner (same answer, exit 2) and hands it the graph's clock, so `--changed-since "1 day"` counts back from a
+  `clock` override; `indexnow/history --limit` and `key-generate --length` fall back to `HistoryCommand::DEFAULT_LIMIT`
+  and `KeyGenerateCommand::DEFAULT_LENGTH` instead of literals; `Config\ConfigFactory` folds the packages' options
+  through `OptionalPackage::ownedOptions()` / `ignoredBlocks()`.
 - **The ActiveRecord observer no longer takes the facade**: `ActiveRecord\IndexNowObserver::__construct()` takes a
   `Closure(): Adapter\Services` where it took an `IndexNowKit`, and builds `Hook\ObserverHelper::forChanges()` from
   `Services::changes()` on the first hook, inside a `try`/`catch`. A `save()` therefore resolves URLs without building
@@ -35,8 +63,9 @@ contain breaking changes, listed under "Changed".
 
 ### Added
 
-- `Check\RouterCheck`: the `router.locales` line of `indexnow/check`. It names the locales `locales: 'all'` expands to,
-  and warns when `router.locales` is empty while a hooked model carries a rule that asks for all of them.
+- The `router.locales` line of `indexnow/check` (the core's `Check\LocalesCheck`, see "Removed"): it names the
+  locales `locales: 'all'` expands to, and warns when `router.locales` is empty while a hooked model carries a rule
+  that asks for all of them.
 - The `clock` component property (see "Changed").
 
 ### Fixed

@@ -7,6 +7,7 @@ namespace IndexNowKit\Yii2\Tests\Unit;
 use IndexNowKit\Yii2\Log\YiiLogger;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\InvalidArgumentException;
 use RuntimeException;
 use yii\log\Logger;
 
@@ -32,5 +33,26 @@ final class YiiLoggerTest extends TestCase
         self::assertSame(['trace true', Logger::LEVEL_TRACE], [$yii->messages[1][0], $yii->messages[1][1]]);
         self::assertSame(Logger::LEVEL_WARNING, $yii->messages[2][1]);
         self::assertSame(Logger::LEVEL_INFO, $yii->messages[3][1]);
+    }
+
+    #[TestDox('a level PSR-3 does not define is a Psr\\Log\\InvalidArgumentException, as the standard requires')]
+    public function testUnknownLevel(): void
+    {
+        $yii = new Logger();
+        $logger = new YiiLogger($yii);
+
+        try {
+            $logger->log('verbose', 'x');
+            self::fail('unknown level');
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString('Unknown log level "verbose"', $e->getMessage());
+        }
+        try {
+            $logger->log(7, 'x');
+            self::fail('a non-string level');
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString('Unknown log level "7"', $e->getMessage());
+        }
+        self::assertSame([], $yii->messages, 'nothing was logged at info instead');
     }
 }

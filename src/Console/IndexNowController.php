@@ -6,6 +6,7 @@ namespace IndexNowKit\Yii2\Console;
 
 use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Console\CheckRunner;
+use IndexNowKit\Console\Command\KeyGenerateCommand;
 use IndexNowKit\Console\CommandDefinition;
 use IndexNowKit\Console\ConfigRunner;
 use IndexNowKit\Console\Definitions;
@@ -16,14 +17,15 @@ use IndexNowKit\Console\OptionDefinition;
 use IndexNowKit\Console\ResultFormatterInterface;
 use IndexNowKit\Console\ResultRenderer;
 use IndexNowKit\Console\SubjectLoaderInterface;
+use IndexNowKit\Console\SubjectSampler;
 use IndexNowKit\Console\SubmitRunner;
 use IndexNowKit\Console\SubmitSubjectsOptions;
 use IndexNowKit\Console\SubmitSubjectsRunner;
 use IndexNowKit\Console\Vocabulary;
 use IndexNowKit\Exception\ConfigurationException;
+use IndexNowKit\History\Console\HistoryCommand;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordLoader;
 use IndexNowKit\Yii2\App;
-use IndexNowKit\Yii2\Check\RecordSampler;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\IndexNowComponent;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -100,7 +102,7 @@ final class IndexNowController extends Controller
     public ?string $since = null;
     /** @var mixed `indexnow/history`: `--purge` removes the records older than history.retention_days, `--purge=30` older than 30 days */
     public mixed $purge = null;
-    public int|string $length = 32;
+    public int|string $length = KeyGenerateCommand::DEFAULT_LENGTH;
     public bool $alphanumeric = false;
     public mixed $writeEnv = null;
     public bool $noPrevious = false;
@@ -220,7 +222,7 @@ final class IndexNowController extends Controller
         $component = $this->component();
         $component->samples->urls = array_values(array_filter($this->sample, static fn(string $v): bool => $v !== ''));
         $component->samples->classes = array_values(array_filter($this->sampleClass, static fn(string $v): bool => $v !== ''));
-        $component->samples->sampler = (new RecordSampler($this->loader(), $component->kit()))(...);
+        $component->samples->sampler = (new SubjectSampler($this->loader(), $component->kit()))(...);
         $runner = new CheckRunner($component->checker(), $this->words());
 
         return $runner->run($this->io(), fn(): mixed => ConfigFactory::build($component->options, $component->environment ?? (\defined('YII_ENV') ? (string) \constant('YII_ENV') : 'prod'), $component->queueExists(), $component->sitemapInstalled(), $component->verifyInstalled(), $component->historyInstalled()), $this->live, array_values($this->host), $this->probeUrl, $this->json, $this->strict);
@@ -316,7 +318,7 @@ final class IndexNowController extends Controller
             $this->status,
             $this->url,
             $this->since,
-            \in_array('limit', $this->passedOptions, true) ? $this->limit : 50,
+            \in_array('limit', $this->passedOptions, true) ? $this->limit : HistoryCommand::DEFAULT_LIMIT,
             $this->json,
             match (true) {
                 $this->purge === null || $this->purge === false || $this->purge === '' => null,
@@ -352,7 +354,7 @@ final class IndexNowController extends Controller
             default => Yii::getAlias('@app') . '/.env',
         };
 
-        return (new KeyGenerateRunner($this->words()))->run($this->io(), is_numeric($this->length) ? (int) $this->length : 32, !$this->alphanumeric, $envFile, $this->force, $this->noPrevious, $this->yes);
+        return (new KeyGenerateRunner($this->words()))->run($this->io(), is_numeric($this->length) ? (int) $this->length : KeyGenerateCommand::DEFAULT_LENGTH, !$this->alphanumeric, $envFile, $this->force, $this->noPrevious, $this->yes);
     }
 
     private function component(): IndexNowComponent

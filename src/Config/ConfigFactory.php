@@ -9,9 +9,6 @@ use IndexNowKit\Adapter\OptionalPackage;
 use IndexNowKit\Config;
 use IndexNowKit\Dispatch\DispatcherFactory;
 use IndexNowKit\Exception\ConfigurationException;
-use IndexNowKit\History\Adapter\HistoryServices;
-use IndexNowKit\Sitemap\Adapter\SitemapServices;
-use IndexNowKit\Verify\Adapter\VerifyServices;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -59,12 +56,10 @@ final class ConfigFactory
     {
         $queue = \is_array($options['queue'] ?? null) ? $options['queue'] : [];
         $component = \is_string($queue['component'] ?? null) && $queue['component'] !== '' ? $queue['component'] : 'queue';
-        $sitemap = OptionalPackage::sitemap($sitemapInstalled)->installed();
-        $verify = OptionalPackage::verify($verifyInstalled)->installed();
-        $history = OptionalPackage::history($historyInstalled)->installed();
+        $packages = [OptionalPackage::sitemap($sitemapInstalled), OptionalPackage::verify($verifyInstalled), OptionalPackage::history($historyInstalled)];
 
         return new CoreConfigFactory(
-            ownedOptions: [...self::YII_OPTIONS, ...$sitemap ? SitemapServices::options() : [], ...$verify ? VerifyServices::options() : [], ...$history ? HistoryServices::options() : []],
+            ownedOptions: [...self::YII_OPTIONS, ...OptionalPackage::ownedOptions($packages)],
             dispatchModes: self::DISPATCH_MODES,
             autoDispatch: static fn(): string => $queueExists ? self::DISPATCH_QUEUE : DispatcherFactory::SYNC,
             needBaseUrl: [self::DISPATCH_QUEUE],
@@ -73,7 +68,7 @@ final class ConfigFactory
                 ? \sprintf('"dispatch" is "queue" but the queue component "%s" is not configured (yiisoft/yii2-queue, option queue.component).', $component)
                 : null,
             checkCommand: 'php yii indexnow/check',
-            ignoreBlocks: [...$sitemap ? [] : ['sitemap'], ...$verify ? [] : ['verify'], ...$history ? [] : ['history']],
+            ignoreBlocks: OptionalPackage::ignoredBlocks($packages),
         );
     }
 

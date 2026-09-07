@@ -7,7 +7,6 @@ namespace IndexNowKit\Yii2\Console;
 use Closure;
 use IndexNowKit\Adapter\Services;
 use IndexNowKit\Console\CommandDefinition;
-use IndexNowKit\Debounce\DebounceStoreFactory;
 use IndexNowKit\History\Adapter\HistoryServices;
 use IndexNowKit\History\Console\Definitions;
 use IndexNowKit\History\Console\HistoryOptions;
@@ -59,16 +58,11 @@ final class HistoryAction
 
     private static function debounceDescription(IndexNowComponent $component, Services $services): string
     {
-        $store = $services->config->debounceStore ?? IndexNowComponent::DEFAULT_DEBOUNCE_STORE;
         if ($component->debounceStore !== null) {
             return 'custom (' . (new ReflectionClass($services->debounceStore()))->getShortName() . ')';
         }
-        if (\in_array($store, [DebounceStoreFactory::MEMORY, DebounceStoreFactory::NONE], true)) {
-            return $store;
-        }
-        $cache = App::component($store);
 
-        return \sprintf('%s (%s)', $store, $cache === null ? 'missing' : (new ReflectionClass($cache))->getShortName());
+        return HistoryServices::describeStore($services->config->debounceStore, IndexNowComponent::DEFAULT_DEBOUNCE_STORE, static fn(string $id): ?object => App::component($id));
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Queue;
 
 use IndexNowKit\Config;
+use IndexNowKit\Dispatch\BatchingDispatcher;
 use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Retry\WorkerOutcome;
 use IndexNowKit\Yii2\App;
@@ -43,9 +44,10 @@ final class SubmitUrlsJob extends BaseObject implements RetryableJobInterface
     /** Component id of {@see IndexNowComponent}. */
     public string $component = 'indexnow';
 
+    /** A fresh correlation id: the core's `Dispatch\BatchingDispatcher::newJobId()`, kept here for the callers of 0.13. */
     public static function newId(): string
     {
-        return bin2hex(random_bytes(6));
+        return BatchingDispatcher::newJobId();
     }
 
     /**

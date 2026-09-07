@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\Check;
 
+use IndexNowKit\Check\DebounceStoreCheck;
 use IndexNowKit\Yii2\App;
 use RuntimeException;
 use yii\caching\CacheInterface;
@@ -22,7 +23,7 @@ final class CacheProbe
                 ? \sprintf('component "%s" does not exist', $store)
                 : \sprintf('component "%s" is a %s, not a yii\caching\CacheInterface', $store, get_debug_type($cache)));
         }
-        $cache->set('indexnowkit:check', 1, 5);
+        $cache->set(DebounceStoreCheck::PROBE_KEY, 1, 5);
 
         return \sprintf('cache component "%s" (%s)', $store, get_debug_type($cache));
     }

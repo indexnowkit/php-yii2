@@ -256,7 +256,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     /**
      * The `debounceStore` property, else `debounce.store`: `memory`, `none`, or a cache component id (the `cache`
-     * component by default) wrapped in {@see YiiCacheDebounceStore}, since Yii's cache is not PSR-16.
+     * component by default) behind the core's `Psr16DebounceStore` over `Cache\Psr16Cache`, since Yii's cache is not PSR-16 itself.
      */
     public function debounceStore(): DebounceStoreInterface
     {

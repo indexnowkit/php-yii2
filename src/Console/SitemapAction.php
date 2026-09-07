@@ -6,7 +6,6 @@ namespace IndexNowKit\Yii2\Console;
 
 use IndexNowKit\Adapter\SubmitterFactoryInterface;
 use IndexNowKit\Console\CommandDefinition;
-use IndexNowKit\Console\ExitCode;
 use IndexNowKit\Console\ResultFormatterInterface;
 use IndexNowKit\Sitemap\Adapter\SitemapServices;
 use IndexNowKit\Sitemap\Console\Definitions;
@@ -28,13 +27,8 @@ final class SitemapAction
 
     public static function run(IndexNowComponent $component, SymfonyStyle $io, SubmitterFactoryInterface $submitters, ResultFormatterInterface $formatter, ?string $sitemap, ?string $changedSince, bool $allowForeignHosts, bool $force, bool $dryRun, bool $json, bool $noVerify = false): int
     {
-        $config = $component->sitemapConfig();
-        if (!$config->enabled) {
-            $io->error('sitemap.enabled is false.');
-
-            return ExitCode::INVALID;
-        }
-        $runner = SitemapServices::runner($component->kit(), $component->sitemapSource(), $submitters, $config, $formatter, 'sitemap.url', $component->unverifiedSubmitterFactory());
+        // `sitemap.enabled: false` is the runner's answer (`sitemap.enabled is false.`, exit 2), as in every adapter
+        $runner = SitemapServices::runner($component->kit(), $component->sitemapSource(), $submitters, $component->sitemapConfig(), $formatter, 'sitemap.url', $component->unverifiedSubmitterFactory(), $component->services()->clock());
 
         return $runner->run($io, new SitemapOptions($sitemap, $changedSince, $allowForeignHosts, $force, $dryRun, $json, $noVerify));
     }

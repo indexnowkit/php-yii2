@@ -9,12 +9,12 @@ use IndexNowKit\Check\CheckInterface;
 use IndexNowKit\Check\CheckLevel;
 use IndexNowKit\Check\CheckReport;
 use IndexNowKit\Check\DebounceStoreCheck;
+use IndexNowKit\Check\LocalesCheck;
 use IndexNowKit\Config;
 use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Testing\Conformance\CheckOutputAssertions;
 use IndexNowKit\Yii2\Check\CacheProbe;
 use IndexNowKit\Yii2\Check\QueueCheck;
-use IndexNowKit\Yii2\Check\RouterCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
 use IndexNowKit\Yii2\IndexNowComponent;
 use IndexNowKit\Yii2\Tests\Fixtures\MultiPost;
@@ -68,21 +68,25 @@ final class ChecksTest extends Yii2TestCase
         self::assertSame([CheckLevel::Ok], $this->levels(new UrlManagerCheck(['key_file' => ['enabled' => false]])));
     }
 
-    #[TestDox('router: the configured locales are an ok line; a rule with locales: all and an empty router.locales is a warning naming the option')]
+    #[TestDox('router.locales: the configured locales are an ok line naming the parameter; a rule with locales: all and an empty router.locales is a warning naming the option (the core\'s LocalesCheck over active_record.models)')]
     public function testRouterCheck(): void
     {
         $rules = $this->component()->rules();
-        $configured = new RouterCheck(['en', 'de'], [MultiPost::class], $rules);
+        $configured = new LocalesCheck(['en', 'de'], $rules, static fn(): array => [MultiPost::class], 'router.locales', 'language');
         self::assertSame([CheckLevel::Ok], $this->levels($configured));
-        self::assertStringContainsString("locales: 'all' expands to en, de", $this->messages($configured)[0]);
+        self::assertStringContainsString('router.locales: en, de', $this->messages($configured)[0]);
+        self::assertStringContainsString('(route parameter "language")', $this->messages($configured)[0]);
 
         $rules->register(MultiPost::class, [new IndexNow(route: 'article/view', params: ['slug' => 'slug'], locales: 'all')]);
-        $missing = new RouterCheck([], [MultiPost::class], $rules);
+        $missing = new LocalesCheck([], $rules, static fn(): array => [MultiPost::class], 'router.locales', 'language');
         self::assertSame([CheckLevel::Warning], $this->levels($missing));
         self::assertStringContainsString('router.locales is empty', $this->messages($missing)[0]);
 
-        $none = new RouterCheck([], [], $rules);
-        self::assertSame([CheckLevel::Ok], $this->levels($none), 'no rule asks for all the locales: nothing to warn about');
+        $none = new LocalesCheck([], $rules, static fn(): array => [], 'router.locales', 'language');
+        self::assertSame([], $this->levels($none), 'no rule asks for all the locales: nothing to say (the Yii2 check used to print an ok line here)');
+
+        $report = $this->component()->checker()->run();
+        self::assertContains(LocalesCheck::CODE, array_map(static fn($item): ?string => $item->code, $report->items()), 'the component wires the line');
     }
 
     #[TestDox('checks: an own CheckInterface named by component id appears in the report; anything else is a ConfigurationException naming it')]

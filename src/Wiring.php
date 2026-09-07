@@ -9,9 +9,11 @@ use IndexNowKit\Adapter\ServicesBuilder;
 use IndexNowKit\Attribute\ParamExtractor;
 use IndexNowKit\Check\CheckInterface;
 use IndexNowKit\Check\DebounceStoreCheck;
+use IndexNowKit\Check\LocalesCheck;
 use IndexNowKit\Check\SampleGateCheck;
 use IndexNowKit\Debounce\DebounceStoreFactory;
 use IndexNowKit\Debounce\DebounceStoreInterface;
+use IndexNowKit\Debounce\Psr16DebounceStore;
 use IndexNowKit\Dispatch\DispatcherFactory;
 use IndexNowKit\Dispatch\DispatcherInterface;
 use IndexNowKit\Exception\ConfigurationException;
@@ -30,9 +32,7 @@ use IndexNowKit\Yii2\Cache\Psr16Cache;
 use IndexNowKit\Yii2\Check\ActiveRecordCheck;
 use IndexNowKit\Yii2\Check\CacheProbe;
 use IndexNowKit\Yii2\Check\QueueCheck;
-use IndexNowKit\Yii2\Check\RouterCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
-use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
 use PDO;
@@ -87,12 +87,13 @@ final class Wiring
             ? static fn(): DebounceStoreInterface => References::ensure(References::reference($component->debounceStore), DebounceStoreInterface::class)
             : static fn(Services $s): DebounceStoreInterface => DebounceStoreFactory::fromConfig(
                 $s->config,
-                static fn(string $id): DebounceStoreInterface => new YiiCacheDebounceStore(Instance::ensure($id, CacheInterface::class), $s->config->debounceKeyPrefix),
+                // the core's PSR-16 store over the PSR-16 view of the Yii cache component (the store the Yii2 package used to ship of its own was the same class over the Yii API)
+                static fn(string $id): DebounceStoreInterface => new Psr16DebounceStore(new Psr16Cache(Instance::ensure($id, CacheInterface::class)), $s->config->debounceKeyPrefix),
                 IndexNowComponent::DEFAULT_DEBOUNCE_STORE,
                 $s->clock(),
             ));
         $store = $component->config()->debounceStore ?? IndexNowComponent::DEFAULT_DEBOUNCE_STORE;
-        if ($component->debounceStore === null && !\in_array($store, [DebounceStoreFactory::MEMORY, DebounceStoreFactory::NONE], true)) {
+        if ($component->debounceStore === null && DebounceStoreFactory::isShared($store)) {
             // The 403 counter shares the cache component behind `debounce.store`; memory/none leave it in the process.
             $builder->failureCache(static fn(): Psr16 => new Psr16Cache(Instance::ensure($store, CacheInterface::class)));
         }
@@ -136,7 +137,8 @@ final class Wiring
             new QueueCheck($component->options, $services->config->dispatch, $component->queueExists()),
             new DebounceStoreCheck($services->config, (new CacheProbe())(...), IndexNowComponent::DEFAULT_DEBOUNCE_STORE),
             new UrlManagerCheck($component->options),
-            new RouterCheck($this->routerLocales(), $component->activeRecordEnabled() ? $component->modelClasses() : [], $services->rules()),
+            // the locale line is the core's check over the classes the component hooks by name (a class hooked through IndexNowBehavior is not known before it is loaded)
+            new LocalesCheck($this->routerLocales(), $services->rules(), static fn(): array => $component->activeRecordEnabled() ? $component->modelClasses() : [], 'router.locales', $this->localeParameter()),
             new ActiveRecordCheck($component->activeRecordEnabled(), $component->modelClasses()),
             $component->sitemapInstalled() ? SitemapServices::spoolCheck($component->sitemapConfig()) : $component->sitemapPackage()->check($component->block('sitemap')),
             ...$component->verifyInstalled()
@@ -192,10 +194,15 @@ final class Wiring
     /** The URL manager bridge with the `router` block (locales, the locale parameter, whether to set the app language). */
     private function router(Services $services): RouteUrlResolverInterface
     {
-        $router = $this->routerBlock();
-        $parameter = $router['locale_parameter'] ?? 'language';
+        return new YiiRouteUrlResolver($services->config, $this->routerLocales(), $this->localeParameter(), (bool) ($this->routerBlock()['set_app_locale'] ?? true), $services->logger);
+    }
 
-        return new YiiRouteUrlResolver($services->config, $this->routerLocales(), \is_string($parameter) && $parameter !== '' ? $parameter : 'language', (bool) ($router['set_app_locale'] ?? true));
+    /** The GET parameter `$locale` is passed as (`router.locale_parameter`, `language` by default: the Yii convention). */
+    private function localeParameter(): string
+    {
+        $parameter = $this->routerBlock()['locale_parameter'] ?? 'language';
+
+        return \is_string($parameter) && $parameter !== '' ? $parameter : 'language';
     }
 
     /**

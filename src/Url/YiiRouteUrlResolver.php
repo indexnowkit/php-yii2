@@ -6,8 +6,10 @@ namespace IndexNowKit\Yii2\Url;
 
 use IndexNowKit\Config;
 use IndexNowKit\Exception\ConfigurationException;
+use IndexNowKit\Url\RouteOrigin;
 use IndexNowKit\Url\RouteUrlResolverInterface;
 use IndexNowKit\Yii2\App;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use yii\db\BaseActiveRecord;
 use yii\web\UrlManager;
@@ -21,29 +23,30 @@ use yii\web\UrlManager;
  * - A rule with `host:` is generated on `hosts.<host>.base_url`, else `https://<host>`.
  * - `$locale` is passed as the `router.locale_parameter` GET parameter (`language` by default, the Yii convention), and
  *   `Yii::$app->language` is switched for the duration when `router.set_app_locale` is on.
+ *
+ * What every bridge of the family decides the same way (the locale expansion and its one warning per process, the
+ * pinned origin, the rebase, the exceptions) is the core's `Url\RouteOrigin`.
  */
 final class YiiRouteUrlResolver implements RouteUrlResolverInterface
 {
+    /** `locales: 'all'` met an empty `router.locales`: warned about once, not once per record. */
+    private bool $warnedAboutLocales = false;
+
     /**
-     * @param list<string> $locales the locales of `locales: 'all'` (`router.locales`)
+     * @param list<string>         $locales the locales of `locales: 'all'` (`router.locales`)
+     * @param LoggerInterface|null $logger  where `locales: 'all'` over an empty list is warned about (once per process)
      */
     public function __construct(
         private readonly Config $config,
         private readonly array $locales = [],
         private readonly string $localeParameter = 'language',
         private readonly bool $setAppLocale = true,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     public function locales(array|string $locales): array
     {
-        if (\is_array($locales)) {
-            return $locales === [] ? [null] : $locales;
-        }
-        if ($locales === 'all' && $this->locales !== []) {
-            return $this->locales;
-        }
-
-        return [null];
+        return RouteOrigin::expand($locales, $this->locales, $this->logger, 'router.locales', $this->warnedAboutLocales);
     }
 
     public function generate(string $route, array $params, ?string $locale = null, ?string $host = null): string
@@ -66,15 +69,14 @@ final class YiiRouteUrlResolver implements RouteUrlResolverInterface
         try {
             $url = $manager->createAbsoluteUrl(['/' . ltrim($route, '/')] + $params);
         } catch (Throwable $e) {
-            throw new ConfigurationException(\sprintf('Cannot generate route "%s": %s', $route, $e->getMessage()), 0, $e);
+            throw RouteOrigin::generationFailed($route, $e);
         } finally {
             if ($previousLanguage !== null) {
                 $app->language = $previousLanguage;
             }
         }
-        $root = $host !== null ? ($this->config->baseUrlFor($host) ?? 'https://' . $host) : null;
 
-        return $root === null ? $url : self::rebase($url, $root);
+        return $host === null ? $url : RouteOrigin::rebase($url, RouteOrigin::pinnedRoot($this->config, $host));
     }
 
     /**
@@ -90,7 +92,7 @@ final class YiiRouteUrlResolver implements RouteUrlResolverInterface
         }
         $base = $this->config->baseUrl;
         if ($base === null) {
-            throw new ConfigurationException('No request to take the host from: set base_url to generate URLs in a console application.');
+            throw RouteOrigin::noRequestHost('a console application');
         }
         $clone = clone $manager;
         $parts = parse_url($base);
@@ -124,21 +126,5 @@ final class YiiRouteUrlResolver implements RouteUrlResolverInterface
         }
 
         return $pk[0];
-    }
-
-    /**
-     * Replaces scheme, host and port of $url with those of $root; path, query and fragment stay.
-     */
-    private static function rebase(string $url, string $root): string
-    {
-        $target = parse_url($root);
-        $source = parse_url($url);
-        if (!\is_array($target) || !\is_array($source) || !isset($target['scheme'], $target['host'])) {
-            return $url;
-        }
-        $origin = $target['scheme'] . '://' . $target['host'] . (isset($target['port']) ? ':' . $target['port'] : '');
-        $rest = ($source['path'] ?? '/') . (isset($source['query']) ? '?' . $source['query'] : '') . (isset($source['fragment']) ? '#' . $source['fragment'] : '');
-
-        return $origin . $rest;
     }
 }
