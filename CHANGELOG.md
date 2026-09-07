@@ -48,7 +48,9 @@ contain breaking changes, listed under "Changed".
   They now ask the core's `Adapter\OptionalPackage::sitemap()` / `verify()` / `history()` (core 0.13.0). Same texts,
   same properties. A new CI job removes the three packages and boots the application with detection
   (`OptionalPackagesDetectionTest`).
-- Requires `indexnowkit/core ^0.13`; `indexnowkit/history ^0.3.1` when installed (`HistoryServices::storeFor()`).
+- Requires `indexnowkit/core ^0.13`, `indexnowkit/console ^0.5`; `indexnowkit/history ^0.4` when installed
+  (`HistoryServices::storeFor()`; the version cascade of wave L, spec 18 — the Yii2 controller keeps parsing over the
+  runners, nothing changes here).
 
 ## [0.13.0] — 2026-09-07
 

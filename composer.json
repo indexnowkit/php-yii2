@@ -32,7 +32,7 @@
     "require": {
         "php": "^8.2",
         "ext-json": "*",
-        "indexnowkit/console": "^0.4",
+        "indexnowkit/console": "^0.5",
         "indexnowkit/core": "^0.13",
         "psr/log": "^2.0 || ^3.0",
         "symfony/console": "^6.4 || ^7.0 || ^8.0",
@@ -40,7 +40,7 @@
         "yiisoft/yii2-composer": "^2.0.10"
     },
     "require-dev": {
-        "indexnowkit/history": "^0.3",
+        "indexnowkit/history": "^0.4",
         "indexnowkit/sitemap": "^0.8",
         "indexnowkit/testing": "^0.3",
         "indexnowkit/verify": "^0.4",
@@ -52,14 +52,14 @@
         "yiisoft/yii2-queue": "^2.3"
     },
     "conflict": {
-        "indexnowkit/history": "<0.3.1",
+        "indexnowkit/history": "<0.4",
         "indexnowkit/sitemap": "<0.8",
         "indexnowkit/verify": "<0.4"
     },
     "suggest": {
         "indexnowkit/sitemap": "The indexnow/sitemap command (^0.8)",
         "indexnowkit/verify": "Pre-flight GET of every URL before submission — noindex, robots.txt, canonical, redirects (^0.4; verify.enabled: true)",
-        "indexnowkit/history": "Submission history in a cache component or a database table, the indexnow/history and indexnow/status commands (^0.3; history.store: psr16|pdo)",
+        "indexnowkit/history": "Submission history in a cache component or a database table, the indexnow/history and indexnow/status commands (^0.4; history.store: psr16|pdo)",
         "yiisoft/yii2-queue": "dispatch: queue — SubmitUrlsJob with retries in a worker",
         "symfony/http-client": "PSR-18 client for the submissions (with nyholm/psr7); any PSR-18 client works",
         "nyholm/psr7": "PSR-17 factories for the PSR-18 client"
