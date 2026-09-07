@@ -41,7 +41,7 @@
     },
     "require-dev": {
         "indexnowkit/history": "^0.4",
-        "indexnowkit/sitemap": "^0.8",
+        "indexnowkit/sitemap": "^0.8 || ^0.9",
         "indexnowkit/testing": "^0.3",
         "indexnowkit/verify": "^0.4",
         "phpstan/phpstan": "^2.2.13",
