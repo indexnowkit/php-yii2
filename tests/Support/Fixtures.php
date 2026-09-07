@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Tests\Support;
 
 use IndexNowKit\Testing\ArrayLogger;
+use IndexNowKit\Testing\Conformance\Arrays;
 use IndexNowKit\Testing\FakeTransport;
 use IndexNowKit\Yii2\IndexNowComponent;
 use IndexNowKit\Yii2\Tests\Fixtures\ModelPost;
@@ -54,12 +55,7 @@ final class Fixtures
      */
     public static function merge(array $base, array $overrides): array
     {
-        foreach ($overrides as $key => $value) {
-            $current = $base[$key] ?? null;
-            $base[$key] = \is_array($value) && $value !== [] && !array_is_list($value) && \is_array($current) ? self::merge($current, $value) : $value;
-        }
-
-        return $base;
+        return Arrays::merge($base, $overrides);
     }
 
     /**
