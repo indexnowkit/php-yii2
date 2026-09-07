@@ -235,10 +235,10 @@ final class IndexNowObserver
 
     private function hookConnection(Connection $db): void
     {
-        if ($this->hooked->contains($db)) {
+        if ($this->hooked->offsetExists($db)) {
             return;
         }
-        $this->hooked->attach($db, true);
+        $this->hooked->offsetSet($db, true);
         $db->on(Connection::EVENT_COMMIT_TRANSACTION, function () use ($db): void {
             $this->deliver($this->staging->flush($db));
         });
