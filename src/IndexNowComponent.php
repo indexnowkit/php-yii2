@@ -339,10 +339,14 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         return $this->sitemap ??= SitemapServices::reader($this->sitemapConfig(), $this->transport(), $this->logger());
     }
 
-    /** The optional `indexnowkit/sitemap` behind its one predicate: the `sitemapInstalled` property, else detection. */
+    /**
+     * The optional `indexnowkit/sitemap` behind its one predicate: the `sitemapInstalled` property, else detection.
+     * The core's `OptionalPackage::sitemap()`, not the package's `SitemapServices::package()`: the package's class
+     * cannot be loaded to say "not installed".
+     */
     public function sitemapPackage(): OptionalPackage
     {
-        return SitemapServices::package($this->sitemapInstalled);
+        return OptionalPackage::sitemap($this->sitemapInstalled);
     }
 
     /** Whether the optional `indexnowkit/sitemap` is installed ({@see sitemapPackage()}). */
@@ -361,7 +365,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     /** The optional `indexnowkit/verify` behind its one predicate: the `verifyInstalled` property, else detection. */
     public function verifyPackage(): OptionalPackage
     {
-        return VerifyServices::package($this->verifyInstalled);
+        return OptionalPackage::verify($this->verifyInstalled);
     }
 
     /** Whether the optional `indexnowkit/verify` is installed ({@see verifyPackage()}). */
@@ -453,7 +457,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     /** The optional `indexnowkit/history` behind its one predicate: the `historyInstalled` property, else detection. */
     public function historyPackage(): OptionalPackage
     {
-        return HistoryServices::package($this->historyInstalled);
+        return OptionalPackage::history($this->historyInstalled);
     }
 
     /** Whether the optional `indexnowkit/history` is installed ({@see historyPackage()}). */

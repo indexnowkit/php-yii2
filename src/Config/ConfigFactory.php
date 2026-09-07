@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Config;
 
 use IndexNowKit\Adapter\ConfigFactory as CoreConfigFactory;
+use IndexNowKit\Adapter\OptionalPackage;
 use IndexNowKit\Config;
 use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\History\Adapter\HistoryServices;
@@ -45,18 +46,19 @@ final class ConfigFactory
      *
      * @param array<string, mixed> $options          the component's `options`
      * @param bool                 $queueExists      whether the configured queue component exists (resolves `dispatch: auto`)
-     * @param bool|null            $sitemapInstalled null = detect ({@see SitemapServices::package()}); the component
-     *                                               passes its `sitemapInstalled` property, tests pass false
-     * @param bool|null            $verifyInstalled  the same for `indexnowkit/verify` ({@see VerifyServices::package()})
-     * @param bool|null            $historyInstalled the same for `indexnowkit/history` ({@see HistoryServices::package()})
+     * @param bool|null            $sitemapInstalled null = detect (the core's `OptionalPackage::sitemap()`, which answers
+     *                                               without the package); the component passes its `sitemapInstalled`
+     *                                               property, tests pass false
+     * @param bool|null            $verifyInstalled  the same for `indexnowkit/verify` (`OptionalPackage::verify()`)
+     * @param bool|null            $historyInstalled the same for `indexnowkit/history` (`OptionalPackage::history()`)
      */
     public static function factory(array $options, bool $queueExists, ?bool $sitemapInstalled = null, ?bool $verifyInstalled = null, ?bool $historyInstalled = null): CoreConfigFactory
     {
         $queue = \is_array($options['queue'] ?? null) ? $options['queue'] : [];
         $component = \is_string($queue['component'] ?? null) && $queue['component'] !== '' ? $queue['component'] : 'queue';
-        $sitemap = $sitemapInstalled ?? SitemapServices::package()->installed();
-        $verify = $verifyInstalled ?? VerifyServices::package()->installed();
-        $history = $historyInstalled ?? HistoryServices::package()->installed();
+        $sitemap = OptionalPackage::sitemap($sitemapInstalled)->installed();
+        $verify = OptionalPackage::verify($verifyInstalled)->installed();
+        $history = OptionalPackage::history($historyInstalled)->installed();
 
         return new CoreConfigFactory(
             ownedOptions: [...self::YII_OPTIONS, ...$sitemap ? SitemapServices::options() : [], ...$verify ? VerifyServices::options() : [], ...$history ? HistoryServices::options() : []],
