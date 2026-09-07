@@ -3,7 +3,41 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: SemVer; until 1.0 minor versions may
 contain breaking changes, listed under "Changed".
 
-## [0.13.1] — Unreleased
+## [0.14.0] — Unreleased
+
+### Changed
+
+- **The ActiveRecord observer no longer takes the facade**: `ActiveRecord\IndexNowObserver::__construct()` takes a
+  `Closure(): Adapter\Services` where it took an `IndexNowKit`, and builds `Hook\ObserverHelper::forChanges()` from
+  `Services::changes()` on the first hook, inside a `try`/`catch`. A `save()` therefore resolves URLs without building
+  the client, the transport or the debounce store, and a graph that cannot be built at all is one `error` line instead
+  of an exception out of `save()`. *Migration*: nobody needs to construct the observer — use
+  `Yii::$app->indexnow->observer()`; code that did should pass `fn () => Yii::$app->indexnow->services()`.
+- **Configuration errors of the adapter are `IndexNowKit\Exception\ConfigurationException`**, not Yii's
+  `InvalidConfigException`: an override (`transport`, `debounceStore`, `dispatcher`, `urlResolver`, `clock`, `checks`)
+  that names nothing or the wrong type, a `queue.component` that is not a `yii\queue\Queue`, a `history.store` whose
+  connection or cache does not resolve, `--component` naming something that is not the component, and the queue job's
+  "component is not configured in the worker application". Yii's exception is left to what Yii itself throws.
+  *Migration*: catch `IndexNowKit\Exception\ConfigurationException` (it is an `InvalidArgumentException`).
+- **The clock is a node of the graph**: the new `clock` component property (PSR-20, an instance, a class or a
+  component id) reaches the throttle, the debounce window *and* the submission timestamps, because `Wiring` now
+  passes `Services::clock()` to the `Submitter` it builds for the pre-flight and to `DebounceStoreFactory::fromConfig()`.
+  `IndexNowKit\Testing\FrozenClock` makes a whole flush deterministic, recorded history included.
+- **`history.store` is wired by the package**: `History\Adapter\HistoryServices::storeFor()` replaces the adapter's own
+  twenty lines; the adapter passes only "the PDO of this `db` component" and "a PSR-16 view of this cache component".
+  The texts and the exception are the same in every adapter (needs `indexnowkit/history ^0.3.1`).
+- `Check\VerifySampleCheck` and `Check\SampleOptions` are removed: the core's `Check\SampleGateCheck` and
+  `Check\SampleOptions` (code `verify.installed`, same lines). `IndexNowComponent::$samples` is now the core's type.
+- An insert is verified against the values the record wrote, an update against the columns it changed, and the core
+  compares only what every driver spells the same way — a DECIMAL, a date or a JSON document no longer discards the
+  announcement of a new page. An update or a delete is staged under the subject (`Post#7`), so a second change of the
+  same record in one transaction joins the first instead of discarding its URLs.
+
+### Added
+
+- `Check\RouterCheck`: the `router.locales` line of `indexnow/check`. It names the locales `locales: 'all'` expands to,
+  and warns when `router.locales` is empty while a hooked model carries a rule that asks for all of them.
+- The `clock` component property (see "Changed").
 
 ### Fixed
 
@@ -14,7 +48,7 @@ contain breaking changes, listed under "Changed".
   They now ask the core's `Adapter\OptionalPackage::sitemap()` / `verify()` / `history()` (core 0.13.0). Same texts,
   same properties. A new CI job removes the three packages and boots the application with detection
   (`OptionalPackagesDetectionTest`).
-- Requires `indexnowkit/core ^0.13`.
+- Requires `indexnowkit/core ^0.13`; `indexnowkit/history ^0.3.1` when installed (`HistoryServices::storeFor()`).
 
 ## [0.13.0] — 2026-09-07
 
