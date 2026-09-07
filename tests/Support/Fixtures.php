@@ -8,7 +8,7 @@ use IndexNowKit\Testing\ArrayLogger;
 use IndexNowKit\Testing\FakeTransport;
 use IndexNowKit\Yii2\IndexNowComponent;
 use IndexNowKit\Yii2\Tests\Fixtures\ModelPost;
-use Yii;
+use yii\BaseYii;
 use yii\console\Application as ConsoleApplication;
 use yii\db\Connection;
 use yii\web\Application as WebApplication;
@@ -74,6 +74,7 @@ final class Fixtures
             'categories/<slug:[\w-]+>' => 'category/view',
             '<language:(en|de)>/articles/<slug:[\w-]+>' => 'article/view',
             'items/<id:\d+>' => 'item/view',
+            'products/<slug:[\w-]+>' => 'product/view',
         ];
     }
 
@@ -135,9 +136,9 @@ final class Fixtures
     public static function destroy(): void
     {
         \yii\base\Event::offAll();
-        Yii::$app?->getErrorHandler()->unregister();
-        Yii::$app = null;
-        Yii::$container = new \yii\di\Container();
+        BaseYii::$app?->getErrorHandler()->unregister();
+        BaseYii::$app = null;
+        BaseYii::$container = new \yii\di\Container();
     }
 
     public static function migrate(Connection $db): void
@@ -152,5 +153,7 @@ final class Fixtures
             $db->createCommand()->createTable($name, ['id' => 'pk', 'name' => 'string NOT NULL'])->execute();
         }
         $db->createCommand()->createTable('items', ['id' => 'pk', 'name' => 'string NOT NULL'])->execute();
+        // a DECIMAL and a timestamp: the columns whose text form the driver decides, not the application
+        $db->createCommand()->createTable('products', ['id' => 'pk', 'slug' => 'string NOT NULL', 'price' => 'decimal(10,2)', 'released_at' => 'datetime'])->execute();
     }
 }

@@ -60,7 +60,9 @@ The full semantics of every core key, and the same table for the other adapters,
 
 Before 0.12.0 the three were `router.languages`, `router.language_parameter` and `router.set_app_language`; the old spellings
 are still read (with a deprecation warning in the log) until the next minor. The vocabulary is the core's: `locales` on the
-attribute, `ResolvedUrl::$locale`, `locale_hosts`.
+attribute, `ResolvedUrl::$locale`, `locale_hosts`. With `router.locales` left empty a rule written `locales: 'all'` yields
+one URL in the current locale; `indexnow/check` says so on the `router.locales` line, and warns when a hooked model
+actually carries such a rule.
 | `active_record.enabled` | `true` | `false` = `IndexNowBehavior` and the `models` list are inert |
 | `active_record.models` | `[]` | ActiveRecord classes hooked through class-level events (no behavior needed) |
 | `sitemap.*` | | needs `indexnowkit/sitemap` (`composer require indexnowkit/sitemap`), else the block is ignored and `indexnow/check` says so: `enabled`, `url`, `max_depth`, `max_sitemaps`, `max_bytes`, `allow_foreign_hosts`, `spool` (auto\|disk\|memory), `spool_dir`, `fetch_retries` |
@@ -75,7 +77,11 @@ attribute resolver entirely), `logger` (PSR-3), `checks` (extra `CheckInterface`
 `sitemapInstalled` (`null` detects `indexnowkit/sitemap`; `false` runs as if the package were absent — tests, or a
 deployment that must not read sitemaps), `verifyInstalled` and `historyInstalled` (the same for `indexnowkit/verify`
 and `indexnowkit/history`), `verifyTransport` (the transport of the pre-flight GETs), `submissionStore` (your own
-`SubmissionStoreInterface`; it wins over `history.store`).
+`SubmissionStoreInterface`; it wins over `history.store`), `clock` (PSR-20; the throttle, the debounce window and the
+submission timestamps read it, so `IndexNowKit\Testing\FrozenClock` makes a whole flush deterministic).
+
+A replacement that cannot be resolved (an id that names nothing, an object of another type) is an
+`IndexNowKit\Exception\ConfigurationException` naming the value.
 
 ## Console controller properties
 

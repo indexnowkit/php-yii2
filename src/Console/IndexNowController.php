@@ -20,6 +20,7 @@ use IndexNowKit\Console\SubmitRunner;
 use IndexNowKit\Console\SubmitSubjectsOptions;
 use IndexNowKit\Console\SubmitSubjectsRunner;
 use IndexNowKit\Console\Vocabulary;
+use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Yii2\ActiveRecord\ActiveRecordLoader;
 use IndexNowKit\Yii2\App;
 use IndexNowKit\Yii2\Check\RecordSampler;
@@ -30,7 +31,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Yii;
 use yii\base\Action;
-use yii\base\InvalidConfigException;
 use yii\console\Controller;
 use yii\di\Instance;
 
@@ -359,7 +359,7 @@ final class IndexNowController extends Controller
     {
         $component = App::indexNow($this->component);
         if ($component === null) {
-            throw new InvalidConfigException(\sprintf('Component "%s" is not an %s.', $this->component, IndexNowComponent::class));
+            throw new ConfigurationException(\sprintf('Component "%s" is not an %s.', $this->component, IndexNowComponent::class));
         }
 
         return $component;

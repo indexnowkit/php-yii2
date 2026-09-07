@@ -17,7 +17,7 @@ final class CapturingController extends Controller
     /** @var list<string> */
     public array $written = [];
 
-    public function stdout($string): int|false
+    public function stdout($string): int
     {
         $this->written[] = (string) $string;
 

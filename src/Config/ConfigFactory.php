@@ -7,6 +7,7 @@ namespace IndexNowKit\Yii2\Config;
 use IndexNowKit\Adapter\ConfigFactory as CoreConfigFactory;
 use IndexNowKit\Adapter\OptionalPackage;
 use IndexNowKit\Config;
+use IndexNowKit\Dispatch\DispatcherFactory;
 use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\History\Adapter\HistoryServices;
 use IndexNowKit\Sitemap\Adapter\SitemapServices;
@@ -38,7 +39,9 @@ final class ConfigFactory
 
     public const DISPATCH_AUTO = 'auto';
 
-    public const DISPATCH_MODES = ['queue', 'sync', 'none'];
+    public const DISPATCH_QUEUE = 'queue';
+
+    public const DISPATCH_MODES = [self::DISPATCH_QUEUE, DispatcherFactory::SYNC, DispatcherFactory::NONE];
 
     /**
      * Without indexnowkit/sitemap the `sitemap` block is ignored as a whole (no "unknown option" warning for options
@@ -63,10 +66,10 @@ final class ConfigFactory
         return new CoreConfigFactory(
             ownedOptions: [...self::YII_OPTIONS, ...$sitemap ? SitemapServices::options() : [], ...$verify ? VerifyServices::options() : [], ...$history ? HistoryServices::options() : []],
             dispatchModes: self::DISPATCH_MODES,
-            autoDispatch: static fn(): string => $queueExists ? 'queue' : 'sync',
-            needBaseUrl: ['queue'],
+            autoDispatch: static fn(): string => $queueExists ? self::DISPATCH_QUEUE : DispatcherFactory::SYNC,
+            needBaseUrl: [self::DISPATCH_QUEUE],
             defaults: ['dispatch' => self::DISPATCH_AUTO],
-            validate: static fn(Config $config): ?string => $config->dispatch === 'queue' && !$queueExists
+            validate: static fn(Config $config): ?string => $config->dispatch === self::DISPATCH_QUEUE && !$queueExists
                 ? \sprintf('"dispatch" is "queue" but the queue component "%s" is not configured (yiisoft/yii2-queue, option queue.component).', $component)
                 : null,
             checkCommand: 'php yii indexnow/check',

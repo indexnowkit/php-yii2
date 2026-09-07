@@ -10,7 +10,7 @@ use IndexNowKit\Testing\Conformance\CoreConformanceTestCase;
 use IndexNowKit\Testing\FakeTransport;
 use IndexNowKit\Yii2\IndexNowComponent;
 use IndexNowKit\Yii2\Tests\Support\Fixtures;
-use Yii;
+use yii\BaseYii;
 
 /**
  * The core conformance kit against the facade the component builds from its options.
@@ -32,7 +32,7 @@ final class CoreConformanceTest extends CoreConformanceTestCase
 
     protected function kit(): IndexNowKit
     {
-        $component = Yii::$app?->get('indexnow');
+        $component = BaseYii::$app?->get('indexnow');
         \assert($component instanceof IndexNowComponent);
 
         return $component->kit();
@@ -43,7 +43,7 @@ final class CoreConformanceTest extends CoreConformanceTestCase
         return $this->transport;
     }
 
-    protected function secondHost(): ?string
+    protected function secondHost(): string
     {
         return 'example.de';
     }

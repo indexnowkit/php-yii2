@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Queue;
 
 use IndexNowKit\Config;
+use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\Retry\WorkerOutcome;
 use IndexNowKit\Yii2\App;
-use RuntimeException;
 use yii\base\BaseObject;
 use yii\queue\Queue;
 use yii\queue\RetryableJobInterface;
@@ -55,7 +55,7 @@ final class SubmitUrlsJob extends BaseObject implements RetryableJobInterface
     {
         $component = App::indexNow($this->component);
         if ($component === null) {
-            throw new RuntimeException(\sprintf('indexnow: component "%s" is not configured in the worker application.', $this->component));
+            throw new ConfigurationException(\sprintf('indexnow: component "%s" is not configured in the worker application.', $this->component));
         }
         $logger = $component->logger();
         $outcome = WorkerOutcome::of($component->submitter()->submit($this->urls));

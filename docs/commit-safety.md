@@ -16,9 +16,15 @@ announced. Yii2 makes this harder than Laravel or Doctrine:
 3. A transaction is open: the URLs are staged (core `Transaction\VerifyingStaging`) together with a **verifier**, a
    closure that re-reads the row by primary key with a plain `Query` (bypassing `find()` scopes) and answers whether
    the change landed:
-   - insert / update / rename: the row exists and carries the written values (loose comparison, driver strings vs
-     typed values);
+   - insert / update / rename: the row exists and carries the written values. Only the values whose text form every
+     driver agrees on are compared (integers, strings, booleans, backed enums, null); a DECIMAL the driver pads to
+     the scale of the column, a timestamp it hands back with a zone suffix and a JSON document it re-spells are
+     skipped like a column the row does not carry, so they never discard the announcement.
    - delete: no row.
+   An update or a delete is staged under the subject (`Post#7`), so a second change of the same record in the same
+   transaction joins the first instead of replacing it: the verifiers run once, at the end, and the first change's
+   expected values are no longer in the row. An insert is staged on its own, because a savepoint rollback frees its
+   primary key and the next insert takes it back.
 4. `EVENT_COMMIT_TRANSACTION`: the verifiers run, the URLs of the changes that landed go to the collector, the rest
    is dropped with a `debug` line (`discarding N staged URL(s) of Post#7, change not committed`). A change that did
    not land drops **every** URL it produced, including `via` pages and the old URL of a renamed page: announcing
@@ -34,7 +40,8 @@ Conformance A02, A05, A05b, A05c pass without touching the connection configurat
   (`UPDATE ... SET title = title`) passes verification and is sent as a harmless refresh of an existing page.
 - A verifier that throws (connection gone) counts as landed and is logged at `warning`: a stale URL costs one
   crawl, a lost one costs the update.
-- Records without a primary key cannot be verified; their URLs are sent.
+- Records without a primary key cannot be verified; their URLs are sent (one `warning` per change inside a
+  transaction, nothing at all outside one — there the URLs never go through a verifier).
 
 ## Long-running commands
 

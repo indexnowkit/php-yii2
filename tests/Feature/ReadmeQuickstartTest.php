@@ -29,14 +29,17 @@ final class ReadmeQuickstartTest extends Yii2TestCase
     #[TestDox('the README record submits its page, the AMP page, the category page and the homepage')]
     public function testTheReadmeRecordSubmitsItsPages(): void
     {
+        // setAttribute()/getAttribute(), not the magic property (Post/Category are the README fixture verbatim
+        // and carry no @property docblock to keep them copy-pasteable): both go through the same ActiveRecord
+        // attribute bag.
         $category = new Category();
-        $category->slug = 'news';
+        $category->setAttribute('slug', 'news');
         self::assertTrue($category->save(false));
         $post = new Post();
-        $post->slug = 'hello';
-        $post->title = 'Hello';
-        $post->amp = true;
-        $post->category_id = $category->id;
+        $post->setAttribute('slug', 'hello');
+        $post->setAttribute('title', 'Hello');
+        $post->setAttribute('amp', true);
+        $post->setAttribute('category_id', $category->getAttribute('id'));
         self::assertTrue($post->save(false));
         $this->kit()->flush();
 

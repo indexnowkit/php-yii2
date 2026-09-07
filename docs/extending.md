@@ -12,7 +12,11 @@ as properties (an instance, a config array, a class name or a component id):
 | `dispatcher` | `IndexNowKit\Dispatch\DispatcherInterface` | another queue, an outbox table |
 | `urlResolver` | `IndexNowKit\Url\UrlResolverInterface` | replace the whole "object → URLs" step |
 | `logger` | PSR-3 | anything but Yii's logger |
+| `clock` | PSR-20 `Psr\Clock\ClockInterface` | one clock for the throttle, the debounce window and the submission timestamps (`IndexNowKit\Testing\FrozenClock` in tests) |
 | `checks` | list of `IndexNowKit\Check\CheckInterface` | extra lines in `indexnow/check` (a CDN purge, a tenant table) |
+
+A value none of these can resolve (a component id that names nothing, a class that is not of the interface) is an
+`IndexNowKit\Exception\ConfigurationException` naming the value, as everywhere else in the family.
 
 Underneath, `Wiring` describes the graph once with the core's `Adapter\ServicesBuilder` (the properties above
 are its overrides, resolved by `References`; the Yii pieces are closures) and `services()` returns the lazy

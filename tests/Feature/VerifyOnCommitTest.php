@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace IndexNowKit\Yii2\Tests\Feature;
 
+use DateTimeImmutable;
 use IndexNowKit\Yii2\Tests\Fixtures\Post;
+use IndexNowKit\Yii2\Tests\Fixtures\Product;
 use IndexNowKit\Yii2\Tests\Yii2TestCase;
 use PHPUnit\Framework\Attributes\TestDox;
 
@@ -71,6 +73,45 @@ final class VerifyOnCommitTest extends Yii2TestCase
         $this->kit()->flush();
 
         self::assertSame(['https://www.example.com/posts/live'], $this->sentUrls());
+    }
+
+    #[TestDox('an insert whose DECIMAL and timestamp the driver re-spells is still submitted: only unambiguous columns are compared')]
+    public function testDriverSpellingDoesNotDiscardAnInsert(): void
+    {
+        $db = $this->app->getDb();
+        $tx = $db->beginTransaction();
+        $product = new Product(['slug' => 'gadget', 'price' => 19.9, 'released_at' => new DateTimeImmutable('2026-09-07 08:00:00')]);
+        $product->save(false);
+        // what mysql and postgres hand back on the re-read: the scale of the column, a zone suffix
+        $db->createCommand()->update('products', ['price' => '19.90', 'released_at' => '2026-09-07 08:00:00+00'], ['id' => $product->id])->execute();
+        $tx->commit();
+        $this->kit()->flush();
+
+        self::assertSame(['https://www.example.com/products/gadget'], $this->sentUrls());
+        self::assertStringNotContainsString('change not committed', implode("\n", $this->logger->messages('debug')));
+    }
+
+    #[TestDox('two updates of one record in one transaction: the first URL is not discarded by the second (staged under the subject key)')]
+    public function testSecondChangeOfTheSameRecordJoinsTheFirst(): void
+    {
+        $post = new Post(['slug' => 'one']);
+        $post->save(false);
+        $this->kit()->flush();
+        $this->transport->posts = [];
+
+        $tx = $this->app->getDb()->beginTransaction();
+        $post->slug = 'two';
+        $post->save(false);
+        $post->slug = 'three';
+        $post->save(false);
+        $tx->commit();
+        $this->kit()->flush();
+
+        self::assertEqualsCanonicalizing([
+            'https://www.example.com/posts/one',
+            'https://www.example.com/posts/two',
+            'https://www.example.com/posts/three',
+        ], $this->sentUrls(), 'both renames are announced: the first change kept its URLs when the second replaced the verifier');
     }
 
     #[TestDox('a rollback of the outer transaction discards without re-reading anything')]

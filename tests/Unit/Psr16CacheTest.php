@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace IndexNowKit\Yii2\Tests\Unit;
 
 use DateInterval;
+use IndexNowKit\Yii2\Cache\InvalidKey;
 use IndexNowKit\Yii2\Cache\Psr16Cache;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -58,7 +59,7 @@ final class Psr16CacheTest extends TestCase
         $cache->set('f', false);
         self::assertFalse($cache->get('f', 'default'), 'a stored false is not a miss');
         self::assertSame(['f' => false, 'missing' => 'd'], iterator_to_array($cache->getMultiple(['f', 'missing'], 'd')));
-        $this->expectException(\Psr\SimpleCache\InvalidArgumentException::class);
+        $this->expectException(InvalidKey::class); // the PSR-16 interface is not Throwable in psr/simple-cache 1.0 (lowest)
         $cache->get('a:b');
     }
 }

@@ -9,12 +9,13 @@ use IndexNowKit\Adapter\ServicesBuilder;
 use IndexNowKit\Attribute\ParamExtractor;
 use IndexNowKit\Check\CheckInterface;
 use IndexNowKit\Check\DebounceStoreCheck;
+use IndexNowKit\Check\SampleGateCheck;
 use IndexNowKit\Debounce\DebounceStoreFactory;
 use IndexNowKit\Debounce\DebounceStoreInterface;
+use IndexNowKit\Dispatch\DispatcherFactory;
 use IndexNowKit\Dispatch\DispatcherInterface;
 use IndexNowKit\Exception\ConfigurationException;
 use IndexNowKit\History\Adapter\HistoryServices;
-use IndexNowKit\History\HistoryConfig;
 use IndexNowKit\Http\TransportInterface;
 use IndexNowKit\Sitemap\Adapter\SitemapServices;
 use IndexNowKit\Submission\SubmissionStoreInterface;
@@ -29,16 +30,15 @@ use IndexNowKit\Yii2\Cache\Psr16Cache;
 use IndexNowKit\Yii2\Check\ActiveRecordCheck;
 use IndexNowKit\Yii2\Check\CacheProbe;
 use IndexNowKit\Yii2\Check\QueueCheck;
+use IndexNowKit\Yii2\Check\RouterCheck;
 use IndexNowKit\Yii2\Check\UrlManagerCheck;
-use IndexNowKit\Yii2\Check\VerifySampleCheck;
 use IndexNowKit\Yii2\Debounce\YiiCacheDebounceStore;
 use IndexNowKit\Yii2\Queue\QueueDispatcher;
 use IndexNowKit\Yii2\Url\YiiRouteUrlResolver;
 use PDO;
+use Psr\Clock\ClockInterface;
 use Psr\SimpleCache\CacheInterface as Psr16;
-use Throwable;
 use Yii;
-use yii\base\InvalidConfigException;
 use yii\caching\CacheInterface;
 use yii\db\Connection;
 use yii\di\Instance;
@@ -53,6 +53,9 @@ use yii\queue\Queue;
  */
 final class Wiring
 {
+    /** @var array<string, mixed>|null the `router` block, read once (the deprecation warnings are written once) */
+    private ?array $router = null;
+
     public function __construct(private readonly IndexNowComponent $component) {}
 
     public function builder(): ServicesBuilder
@@ -64,15 +67,20 @@ final class Wiring
         }
         $builder->httpClientLocator(static fn(string $id): mixed => App::component($id) ?? Yii::$container->get($id));
         $builder->events($component->events()); // every Result raises IndexNowComponent::EVENT_RESULT
+        if ($component->clock !== null) {
+            // one clock for the throttle, the debounce window and the submission timestamps (Testing\FrozenClock in tests)
+            $builder->clock(static fn(): ClockInterface => References::ensure(References::reference($component->clock), ClockInterface::class));
+        }
         if ($component->verifyEnabled()) {
             // The pre-flight decorator around the default submitter of the graph: sync flushes and yii2-queue jobs verify.
+            // `Services::submitter()` cannot be asked for here (this closure *is* that node), so the clock is passed by hand.
             $builder->submitter(static fn(Services $s): SubmitterInterface => VerifyServices::submitterFor(
-                new Submitter($s->client(), $s->config, $s->debounceStore(), $s->logger, $s->normalizer(), $component->events(), $s->submissionStore()),
+                new Submitter($s->client(), $s->config, $s->debounceStore(), $s->logger, $s->normalizer(), $component->events(), $s->submissionStore(), $s->clock()),
                 $component->verifyConfig(),
                 $s,
                 $component->verifyTransport(),
                 $component->robots(),
-                $s->config->dispatch === 'sync' && Yii::$app instanceof \yii\web\Application,
+                $s->config->dispatch === DispatcherFactory::SYNC && Yii::$app instanceof \yii\web\Application,
             ));
         }
         $builder->debounceStore($component->debounceStore !== null
@@ -81,6 +89,7 @@ final class Wiring
                 $s->config,
                 static fn(string $id): DebounceStoreInterface => new YiiCacheDebounceStore(Instance::ensure($id, CacheInterface::class), $s->config->debounceKeyPrefix),
                 IndexNowComponent::DEFAULT_DEBOUNCE_STORE,
+                $s->clock(),
             ));
         $store = $component->config()->debounceStore ?? IndexNowComponent::DEFAULT_DEBOUNCE_STORE;
         if ($component->debounceStore === null && !\in_array($store, [DebounceStoreFactory::MEMORY, DebounceStoreFactory::NONE], true)) {
@@ -91,7 +100,13 @@ final class Wiring
             $builder->submissionStore(static fn(): SubmissionStoreInterface => References::ensure(References::reference($component->submissionStore), SubmissionStoreInterface::class));
         } elseif ($component->historyEnabled()) {
             // The store of `history.store` (indexnowkit/history): the submitter, the queue job, the commands and the verify decorator record into it.
-            $builder->submissionStore(static fn(Services $s): SubmissionStoreInterface => self::historyStore($component->historyConfig(), $s));
+            $builder->submissionStore(static fn(Services $s): SubmissionStoreInterface => HistoryServices::storeFor(
+                $component->historyConfig(),
+                $s->config,
+                static fn(?string $id): PDO => self::masterPdo($id ?? 'db'),
+                static fn(?string $id): Psr16 => new Psr16Cache(Instance::ensure($id ?? IndexNowComponent::DEFAULT_DEBOUNCE_STORE, CacheInterface::class)),
+                IndexNowComponent::DEFAULT_DEBOUNCE_STORE,
+            ));
         }
         if ($component->dispatcher !== null) {
             $builder->dispatcher(static fn(): DispatcherInterface => References::ensure(References::reference($component->dispatcher), DispatcherInterface::class));
@@ -121,11 +136,12 @@ final class Wiring
             new QueueCheck($component->options, $services->config->dispatch, $component->queueExists()),
             new DebounceStoreCheck($services->config, (new CacheProbe())(...), IndexNowComponent::DEFAULT_DEBOUNCE_STORE),
             new UrlManagerCheck($component->options),
+            new RouterCheck($this->routerLocales(), $component->activeRecordEnabled() ? $component->modelClasses() : [], $services->rules()),
             new ActiveRecordCheck($component->activeRecordEnabled(), $component->modelClasses()),
             $component->sitemapInstalled() ? SitemapServices::spoolCheck($component->sitemapConfig()) : $component->sitemapPackage()->check($component->block('sitemap')),
             ...$component->verifyInstalled()
-                ? VerifyServices::checksFor($component->verifyConfig(), $services, 'queue', new VerifySampleCheck($component->samples, VerifyServices::sampleCheck($component->verifyTransport(), $component->verifyConfig(), $services->normalizer(), $services->keys(), $component->samples->sampler, $component->robots())))
-                : [new VerifySampleCheck($component->samples, null, $component->verifyPackage()->checkLine($component->block('verify')), $component->verifyPackage()->checkLevel($component->block('verify')))],
+                ? VerifyServices::checksFor($component->verifyConfig(), $services, 'queue', SampleGateCheck::withPackage($component->samples, VerifyServices::sampleCheck($component->verifyTransport(), $component->verifyConfig(), $services->normalizer(), $services->keys(), $component->samples->sampler, $component->robots())))
+                : [SampleGateCheck::withoutPackage($component->samples, $component->verifyPackage(), $component->block('verify'))],
             ...$component->historyInstalled()
                 ? HistoryServices::checksFor($component->historyConfig(), $services)
                 : [$component->historyPackage()->check($component->block('history'))],
@@ -153,36 +169,21 @@ final class Wiring
         $id = $this->component->queueComponentId();
         $queue = App::component($id);
         if (!$queue instanceof Queue) {
-            throw new InvalidConfigException(\sprintf('indexnow: component "%s" is not a yii\queue\Queue.', $id));
+            throw new ConfigurationException(\sprintf('indexnow: component "%s" (queue.component) is not a yii\queue\Queue.', $id));
         }
 
         return $queue;
     }
 
-    /**
-     * The store of `history.store` (indexnowkit/history): `pdo` over the PDO of the `db` component named by
-     * `history.pdo.service` (default `db`) or a PDO built from `history.pdo.dsn`; `psr16` over the cache component of
-     * `debounce.store` (the `cache` component with `memory`/`none`) through the package's PSR-16 bridge.
-     */
-    private static function historyStore(HistoryConfig $history, Services $services): SubmissionStoreInterface
+    /** The PDO of a `db` connection component, for the `pdo` store of `history.store` (`history.pdo.service`). */
+    private static function masterPdo(string $id): PDO
     {
-        if ($history->store === HistoryConfig::STORE_PDO) {
-            if ($history->pdoDsn !== null) {
-                return HistoryServices::pdoStore(HistoryServices::pdoFromDsn($history->pdoDsn), $history);
-            }
-            $connection = Instance::ensure($history->pdoService ?? 'db', Connection::class);
-            \assert($connection instanceof Connection);
-            $pdo = $connection->getMasterPdo();
-            \assert($pdo instanceof PDO);
+        $connection = Instance::ensure($id, Connection::class);
+        \assert($connection instanceof Connection);
+        $pdo = $connection->getMasterPdo();
+        \assert($pdo instanceof PDO);
 
-            return HistoryServices::pdoStore($pdo, $history);
-        }
-        if ($history->store !== HistoryConfig::STORE_PSR16) {
-            throw new InvalidConfigException('indexnow: history.store is set but no store was built.');
-        }
-        $cache = HistoryServices::debounceCacheId($services->config) ?? IndexNowComponent::DEFAULT_DEBOUNCE_STORE;
-
-        return HistoryServices::psr16Store(new Psr16Cache(Instance::ensure($cache, CacheInterface::class)), $history, $services->config);
+        return $pdo;
     }
 
     /** The deprecated spellings of the `router` block (before 0.12.0 the adapter said "language" where the core says "locale"). */
@@ -191,6 +192,22 @@ final class Wiring
     /** The URL manager bridge with the `router` block (locales, the locale parameter, whether to set the app language). */
     private function router(Services $services): RouteUrlResolverInterface
     {
+        $router = $this->routerBlock();
+        $parameter = $router['locale_parameter'] ?? 'language';
+
+        return new YiiRouteUrlResolver($services->config, $this->routerLocales(), \is_string($parameter) && $parameter !== '' ? $parameter : 'language', (bool) ($router['set_app_locale'] ?? true));
+    }
+
+    /**
+     * The `router` block with the pre-0.12 spellings folded in, each one warned about once.
+     *
+     * @return array<string, mixed>
+     */
+    private function routerBlock(): array
+    {
+        if ($this->router !== null) {
+            return $this->router;
+        }
         $router = $this->component->block('router');
         foreach (self::ROUTER_RENAMED as $old => $new) {
             if (\array_key_exists($old, $router)) {
@@ -198,22 +215,32 @@ final class Wiring
                 $this->component->logger()->warning('indexnow: option "router.{old}" is deprecated since indexnowkit/yii2 0.12.0, rename it to "router.{new}" (the vocabulary of the core: locale); the old spelling is read until the next minor', ['old' => $old, 'new' => $new]);
             }
         }
-        $locales = \is_array($router['locales'] ?? null) ? array_values(array_filter($router['locales'], 'is_string')) : [];
-        $parameter = $router['locale_parameter'] ?? 'language';
 
-        return new YiiRouteUrlResolver($services->config, $locales, \is_string($parameter) && $parameter !== '' ? $parameter : 'language', (bool) ($router['set_app_locale'] ?? true));
+        return $this->router = $router;
     }
 
-    /** `#[IndexNow(resolver: ...)]` ids: an application component, a container definition or a class `Yii::$container` can build. */
+    /**
+     * The locales `locales: 'all'` expands to (`router.locales`); empty when the option is unset.
+     *
+     * @return list<string>
+     */
+    private function routerLocales(): array
+    {
+        $locales = $this->routerBlock()['locales'] ?? null;
+
+        return \is_array($locales) ? array_values(array_filter($locales, 'is_string')) : [];
+    }
+
+    /**
+     * `#[IndexNow(resolver: ...)]` ids: an application component, a container definition or a class `Yii::$container`
+     * can build. A throw is left to `Url\ArrayResolverLocator`, which turns every adapter's container failure into the
+     * one `ConfigurationException` text.
+     */
     private static function locateResolver(string $id): ?object
     {
-        try {
-            $resolver = App::component($id);
-            if ($resolver === null && (Yii::$container->has($id) || class_exists($id))) {
-                $resolver = Yii::$container->get($id);
-            }
-        } catch (Throwable $e) {
-            throw new ConfigurationException(\sprintf('IndexNow URL resolver "%s" cannot be built: %s', $id, $e->getMessage()), 0, $e);
+        $resolver = App::component($id);
+        if ($resolver === null && (Yii::$container->has($id) || class_exists($id))) {
+            $resolver = Yii::$container->get($id);
         }
 
         return \is_object($resolver) ? $resolver : null;

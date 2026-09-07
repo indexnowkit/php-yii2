@@ -12,6 +12,7 @@ use IndexNowKit\Attribute\IndexNowDefaults;
 use IndexNowKit\Attribute\RuleRegistry;
 use IndexNowKit\Check\CheckerInterface;
 use IndexNowKit\Check\CheckInterface;
+use IndexNowKit\Check\SampleOptions;
 use IndexNowKit\Collector\CollectorInterface;
 use IndexNowKit\Config;
 use IndexNowKit\Debounce\DebounceStoreInterface;
@@ -40,13 +41,13 @@ use IndexNowKit\Verify\Adapter\VerifyServices;
 use IndexNowKit\Verify\RobotsCache;
 use IndexNowKit\Verify\VerifyConfig;
 use IndexNowKit\Yii2\ActiveRecord\IndexNowObserver;
-use IndexNowKit\Yii2\Check\SampleOptions;
 use IndexNowKit\Yii2\Config\ConfigFactory;
 use IndexNowKit\Yii2\Console\IndexNowController;
 use IndexNowKit\Yii2\Event\ResultDispatcher;
 use IndexNowKit\Yii2\Http\KeyFileController;
 use IndexNowKit\Yii2\Log\YiiLogger;
 use LogicException;
+use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface as Psr16;
 use Yii;
@@ -107,6 +108,9 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     /** @var LoggerInterface|array<string, mixed>|string|null PSR-3 logger; default: Yii's logger under `logging.category` */
     public mixed $logger = null;
 
+    /** @var ClockInterface|array<string, mixed>|string|null the clock of the throttle, the debounce window and the submission timestamps (`Testing\FrozenClock` in tests); default: the system clock */
+    public mixed $clock = null;
+
     /** @var SubmissionStoreInterface|array<string, mixed>|string|null where the submitter records every Result (your own store; it wins over `history.store` of indexnowkit/history); default: the store of `history.store`, else nowhere */
     public mixed $submissionStore = null;
 
@@ -131,7 +135,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
     /** @var TransportInterface|array<string, mixed>|string|null replacement transport of the pre-flight GETs of indexnowkit/verify (tests); default: `verify.timeout`, `verify.user_agent` over `http.client` */
     public mixed $verifyTransport = null;
 
-    /** The `--sample` / `--sample-class` values of the running `indexnow/check` ({@see Check\SampleOptions}); the controller fills them. */
+    /** The `--sample` / `--sample-class` values of the running `indexnow/check` (`Check\SampleOptions` of the core); the controller fills them. */
     public SampleOptions $samples;
 
 
@@ -291,10 +295,7 @@ final class IndexNowComponent extends Component implements BootstrapInterface
 
     public function routeResolver(): RouteUrlResolverInterface
     {
-        $router = $this->services()->router();
-        \assert($router instanceof RouteUrlResolverInterface, 'the component always gives the builder a router');
-
-        return $router;
+        return $this->services()->requireRouter();
     }
 
     /**
@@ -311,9 +312,13 @@ final class IndexNowComponent extends Component implements BootstrapInterface
         return $this->staging ??= new VerifyingStaging($this->logger(), $this->config()->logUrls);
     }
 
+    /**
+     * The one observer of every hooked class. It is given the graph as a closure, not the facade: an ActiveRecord
+     * hook resolves URLs through `Adapter\Services::changes()` and builds the client only when a URL was collected.
+     */
     public function observer(): IndexNowObserver
     {
-        return $this->observer ??= new IndexNowObserver($this->kit(), $this->staging(), $this->logger(), $this->activeRecordEnabled());
+        return $this->observer ??= new IndexNowObserver(fn(): Services => $this->services(), $this->staging(), $this->logger(), $this->activeRecordEnabled());
     }
 
     /**

@@ -29,7 +29,8 @@ final class VerifyTest extends Yii2TestCase
     {
         $seen = [];
         $this->component()->on(IndexNowComponent::EVENT_RESULT, static function (ResultEvent $event) use (&$seen): void {
-            $seen[] = $event->result->status->value . ':' . ($event->result->reason?->value ?? '-');
+            $reason = $event->result->reason;
+            $seen[] = $event->result->status->value . ':' . ($reason === null ? '-' : $reason->value);
         });
         $this->transport
             ->onGet('https://www.example.com/posts/fine', new Response(200))

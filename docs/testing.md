@@ -25,6 +25,12 @@ $logger->messages('error');                   // []
 `FakeTransport::willRespond(new Response(429))` and `onGet($url, new Response(200, $key))` script the engines and the
 key file; `ArrayLogger::messages($level)` returns interpolated lines.
 
+## A deterministic clock
+
+`'clock' => new \IndexNowKit\Testing\FrozenClock('2026-09-07 08:00:00')` on the component replaces the clock of the
+whole graph: the throttle, the debounce window and the timestamps the submitter records in `history.store` all read
+it, so `advance(601)` is how a test reopens a ten-minute debounce window without sleeping.
+
 The package's own suite (`tests/`) runs the core conformance kits (`OrmConformanceTestCase`, `CoreConformanceTestCase`)
 through a web and a console application in memory; `Yii2TestCase` is a template for an application test case:
 `Fixtures::webApp()` / `consoleApp()` build the application, `Fixtures::destroy()` unregisters Yii's error handler and

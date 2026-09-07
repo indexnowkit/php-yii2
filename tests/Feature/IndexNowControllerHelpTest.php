@@ -69,6 +69,7 @@ final class IndexNowControllerHelpTest extends Yii2TestCase
         $controller = new IndexNowController('indexnow', $this->app);
         $action = $controller->createAction($actionId);
         self::assertNotNull($action);
+        /** @var \yii\base\Action<IndexNowController> $action */
 
         return $controller->getActionOptionsHelp($action);
     }
